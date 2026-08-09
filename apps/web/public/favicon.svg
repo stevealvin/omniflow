@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <!-- 图标整体炫彩渐变背景 -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4f46e5" />
+      <stop offset="50%" stop-color="#7c3aed" />
+      <stop offset="100%" stop-color="#2563eb" />
+    </linearGradient>
+
+    <!-- 顶层高光柔光渐变 -->
+    <linearGradient id="shineGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.35" />
+      <stop offset="50%" stop-color="#ffffff" stop-opacity="0.05" />
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.15" />
+    </linearGradient>
+
+    <!-- 边框微光渐变 -->
+    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.6" />
+      <stop offset="100%" stop-color="#a78bfa" stop-opacity="0.3" />
+    </linearGradient>
+
+    <!-- 3D 星环渐变 -->
+    <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="50%" stop-color="#e0e7ff" />
+      <stop offset="100%" stop-color="#38bdf8" />
+    </linearGradient>
+
+    <!-- 核心高能量量子球 -->
+    <linearGradient id="coreGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#6366f1" />
+    </linearGradient>
+  </defs>
+
+  <!-- 1. 圆角矩形主背景 -->
+  <rect x="2" y="2" width="96" height="96" rx="24" fill="url(#bgGrad)" stroke="url(#borderGrad)" stroke-width="2" />
+
+  <!-- 2. 覆盖顶部镜面高光 -->
+  <rect x="2" y="2" width="96" height="96" rx="24" fill="url(#shineGrad)" />
+
+  <!-- 3. 背景晕染光圈 -->
+  <circle cx="50" cy="50" r="28" fill="#ffffff" opacity="0.2" />
+
+  <!-- 4. 倾斜 3D 纯白-天蓝星环 -->
+  <ellipse cx="50" cy="50" rx="34" ry="15" stroke="url(#ringGrad)" stroke-width="5.5" transform="rotate(-30 50 50)" stroke-linecap="round" />
+
+  <!-- 5. 核心高能量量子球体 -->
+  <circle cx="50" cy="50" r="15" fill="url(#coreGrad)" />
+
+  <!-- 6. 高光反射亮斑 -->
+  <circle cx="44" cy="44" r="4.5" fill="#ffffff" opacity="0.9" />
+
+  <!-- 7. 轨道节点星点 -->
+  <circle cx="75" cy="34" r="3.5" fill="#ffffff" />
+</svg>

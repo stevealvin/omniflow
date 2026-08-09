@@ -1,0 +1,53 @@
+# Dependencies & Lock Files
+node_modules
+.pnpm-store
+package-lock.json
+skills-lock.json
+*.lock
+yarn.lock
+pnpm-lock.yaml
+
+# AI Agents & Skills
+.agents/
+
+# Production Builds
+dist
+dist-ssr
+*.local
+
+# Environment Variables & Local Credentials
+.env
+.env.local
+.env.*.local
+*.env
+
+# IDE & Editor Files
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# System & OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Temporary & Cache Directories
+.cache
+.temp
+.system_generated

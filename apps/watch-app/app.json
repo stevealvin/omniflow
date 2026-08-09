@@ -1,0 +1,20 @@
+{
+  "appId": "com.omniflow.watch",
+  "appName": "星环流动",
+  "versionName": "1.0.0",
+  "versionCode": 1,
+  "icon": "/assets/icon.png",
+  "features": [
+    { "name": "system.fetch" }
+  ],
+  "display": {
+    "width": 390,
+    "height": 450,
+    "backgroundColor": "#09090b",
+    "pages": {
+      "pages/index/index": {
+        "title": "星环流动"
+      }
+    }
+  }
+}

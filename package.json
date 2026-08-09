@@ -1,0 +1,31 @@
+{
+  "name": "omniflow",
+  "version": "1.0.0",
+  "private": true,
+  "description": "星环流动 (OmniFlow) — 个人开发者 OS & 多端微服务控制平台",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm:dev:web\" \"npm:dev:api\"",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "dev:api": "npm run dev --workspace=apps/api",
+    "build:web": "npm run build --workspace=apps/web"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.4"
+  },
+  "keywords": [
+    "omniflow",
+    "星环流动",
+    "hono",
+    "vue3",
+    "tailwindcss-v4",
+    "antdv-next",
+    "redmi-watch-6",
+    "antigravity",
+    "codex"
+  ],
+  "author": "",
+  "license": "MIT"
+}

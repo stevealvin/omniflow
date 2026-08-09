@@ -1,0 +1,90 @@
+@import "tailwindcss";
+@import "@antdv-next/tailwind/compat.css";
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+  .dark {
+    color-scheme: dark;
+  }
+  body {
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* 高端 Apple / Linear 风格星环网格渐变背景 */
+.bg-mesh-light {
+  background: 
+    radial-gradient(at 5% 5%, rgba(99, 102, 241, 0.18) 0px, transparent 50%),
+    radial-gradient(at 95% 10%, rgba(56, 189, 248, 0.15) 0px, transparent 50%),
+    radial-gradient(at 90% 90%, rgba(168, 85, 247, 0.12) 0px, transparent 50%),
+    radial-gradient(at 10% 90%, rgba(99, 102, 241, 0.10) 0px, transparent 50%),
+    linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%);
+}
+
+.bg-mesh-dark {
+  background: 
+    radial-gradient(at 10% 10%, rgba(99, 102, 241, 0.28) 0px, transparent 55%),
+    radial-gradient(at 90% 15%, rgba(168, 85, 247, 0.22) 0px, transparent 55%),
+    radial-gradient(at 85% 85%, rgba(14, 165, 233, 0.20) 0px, transparent 55%),
+    radial-gradient(at 15% 90%, rgba(79, 70, 229, 0.22) 0px, transparent 55%),
+    linear-gradient(135deg, #090d16 0%, #0f172a 50%, #090d16 100%);
+}
+
+/* 强沉浸感 Apple macOS 磨砂玻璃 (Frosted Glassmorphism) Header */
+.glass-header {
+  background: rgba(255, 255, 255, 0.65) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+}
+
+.dark .glass-header {
+  background: rgba(15, 23, 42, 0.65) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* 强沉浸感 Apple macOS 磨砂玻璃 Sidebar */
+.glass-sidebar {
+  background: rgba(255, 255, 255, 0.65) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.02);
+}
+
+.dark .glass-sidebar {
+  background: rgba(15, 23, 42, 0.65) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.25);
+}
+
+/* 自定义极简滚动条 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.3);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.5);
+}
