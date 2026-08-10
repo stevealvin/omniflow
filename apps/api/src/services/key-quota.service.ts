@@ -155,6 +155,9 @@ export const probeKeyQuota = async (key: ApiKeyConfig): Promise<ApiKeyConfig> =>
   const provider = QuotaProviderFactory.getProvider(key.provider)
   const result = await provider.fetchQuota(key)
 
+  console.log(result);
+  
+
   const updated: ApiKeyConfig = {
     ...key,
     status: result.status,
