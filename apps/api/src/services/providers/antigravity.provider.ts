@@ -8,39 +8,6 @@ const DEFAULT_CLIENT_SECRET = Buffer.from('R09DU1BYLUs1OEZXUjQ4NkxkTEoxbUxCOHNYQ
 export class AntigravityProvider implements IQuotaProvider {
   readonly providerId = 'google-antigravity'
 
-  /**
-   * 自动解析与容错：支持用户传入纯文本 Token 或完整凭据 JSON 字符串
-   */
-  private parseTokens(config: ApiKeyConfig): { refreshToken: string | null; accessToken: string | null } {
-    let refreshToken: string | null = config.refreshToken ? config.refreshToken.trim() : null
-    const rawAccess = config.accessToken || config.apiKey
-    let accessToken: string | null = rawAccess ? rawAccess.trim() : null
-
-    // 检查是否有任何输入框粘贴了完整的凭据 JSON
-    const rawList = [config.refreshToken, config.accessToken, config.apiKey]
-    const candidates: string[] = rawList.filter((x): x is string => Boolean(x && typeof x === 'string'))
-
-    for (const raw of candidates) {
-      const trimmed = raw.trim()
-      if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
-        try {
-          const parsed = JSON.parse(trimmed)
-          const tokenObj = parsed?.token || parsed
-          if (tokenObj?.refresh_token && typeof tokenObj.refresh_token === 'string') {
-            refreshToken = tokenObj.refresh_token.trim()
-          }
-          if (tokenObj?.access_token && typeof tokenObj.access_token === 'string') {
-            accessToken = tokenObj.access_token.trim()
-          }
-        } catch {
-          // 非标准 JSON，忽略跳过
-        }
-      }
-    }
-
-    return { refreshToken, accessToken }
-  }
-
   private async refreshAccessToken(refreshToken: string): Promise<string | null> {
     try {
       const clientId = process.env.ANTIGRAVITY_CLIENT_ID || DEFAULT_CLIENT_ID
@@ -72,17 +39,17 @@ export class AntigravityProvider implements IQuotaProvider {
 
   async fetchQuota(config: ApiKeyConfig): Promise<QuotaFetchResult> {
     const now = new Date().toISOString()
-    const { refreshToken, accessToken: fallbackAccessToken } = this.parseTokens(config)
     let validAccessToken: string | null = null
 
-    // 1. 若提取到了 Refresh Token (以 1// 开头)，优先自动向 Google OAuth 换取最新有效的临时 Access Token
-    if (refreshToken) {
-      validAccessToken = await this.refreshAccessToken(refreshToken)
+    // 1. 若配置了标准的 Refresh Token，优先自动向 Google OAuth 换取最新有效的临时 Access Token
+    if (config.refreshToken && config.refreshToken.trim()) {
+      validAccessToken = await this.refreshAccessToken(config.refreshToken)
     }
 
-    // 2. 若 Refresh Token 换取失败或未提供，回退使用提出来的 Access Token (以 ya29. 开头)
+    // 2. 若 Refresh Token 换取失败或未提供，回退使用 Access Token / API Key
     if (!validAccessToken) {
-      validAccessToken = fallbackAccessToken
+      const rawAccess = config.accessToken || config.apiKey
+      validAccessToken = rawAccess ? rawAccess.trim() : null
     }
 
     if (!validAccessToken) {
