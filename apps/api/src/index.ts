@@ -35,7 +35,7 @@ api.route('/', accountsRouter)
 app.route('/api', api)
 app.route('/api/v1', api)
 
-const port = Number(process.env.PORT) || 3100
+const port = Number(process.env.PORT) || 5100
 
 console.log(`🚀 星环流动 (OmniFlow) 后端 API 已成功运行在 http://localhost:${port}`)
 

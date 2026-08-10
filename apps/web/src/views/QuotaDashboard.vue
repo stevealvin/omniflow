@@ -43,12 +43,12 @@ const codexForm = reactive({
   authType: 'oauth' as 'oauth' | 'api_key',
   accessToken: '',
   apiKey: '',
-  planType: '开发者 Pro 版'
+  planType: ''
 })
 
 // 格式化倒计时秒数 HH:MM:SS
-const formatCountdown = (totalSeconds: number) => {
-  if (totalSeconds <= 0) return '00:00:00 (刷新中)'
+const formatCountdown = (totalSeconds?: number) => {
+  if (!totalSeconds || totalSeconds <= 0) return ''
   const hrs = Math.floor(totalSeconds / 3600)
   const mins = Math.floor((totalSeconds % 3600) / 60)
   const secs = totalSeconds % 60
@@ -483,15 +483,15 @@ onMounted(() => {
           </div>
 
           <!-- 配额进度条 -->
-          <div class="space-y-1">
+          <div v-if="account.quota" class="space-y-1">
             <div class="flex justify-between text-xs font-mono">
               <span class="text-slate-500">剩余配额</span>
               <span class="font-bold text-slate-800 dark:text-slate-200">
-                {{ account.quota?.remainingPercentage ?? 50 }}%
+                {{ account.quota.remainingPercentage }}%
               </span>
             </div>
             <a-progress
-              :percent="account.quota?.remainingPercentage ?? 50"
+              :percent="account.quota.remainingPercentage"
               :show-info="false"
               :stroke-color="account.platform === 'antigravity' ? '#6366f1' : '#10b981'"
               size="small"
@@ -499,17 +499,17 @@ onMounted(() => {
           </div>
 
           <!-- 模型细分占用 -->
-          <div class="grid grid-cols-2 gap-2 pt-1 border-t border-slate-200/50 dark:border-zinc-700/50 text-[11px]">
-            <div class="flex justify-between text-slate-500">
+          <div v-if="account.quota" class="grid grid-cols-2 gap-2 pt-1 border-t border-slate-200/50 dark:border-zinc-700/50 text-[11px]">
+            <div v-if="account.quota.secondsRemaining" class="flex justify-between text-slate-500">
               <span>倒计时:</span>
               <span class="font-mono text-indigo-600 dark:text-indigo-400">
-                {{ formatCountdown(account.quota?.secondsRemaining ?? 12000) }}
+                {{ formatCountdown(account.quota.secondsRemaining) }}
               </span>
             </div>
-            <div class="flex justify-between text-slate-500">
+            <div v-if="account.quota.planType || account.planType" class="flex justify-between text-slate-500">
               <span>模式:</span>
               <span class="font-mono text-slate-700 dark:text-slate-300">
-                {{ account.quota?.subscriptionTier || 'Pro / Priority' }}
+                {{ account.quota.planType || account.planType }}
               </span>
             </div>
           </div>

@@ -7,52 +7,20 @@ import type {
   CreateCodexAccountInput,
   AccountQuota
 } from '../types/account.js'
-import { calculateQuotaResetTime } from './quota.service.js'
+import { QuotaProviderFactory } from './providers/factory.js'
 
-// 动态构建算力配额计算结构
-const buildAntigravityQuota = (): AccountQuota => {
-  const { secondsRemaining, resetTimeString } = calculateQuotaResetTime()
-  return {
-    usedPercentage: 35,
-    remainingPercentage: 65,
-    status: 'healthy',
-    resetIntervalHours: 5,
-    secondsRemaining,
-    nextResetTime: resetTimeString,
-    subscriptionTier: 'Pro / Ultra 优先配额',
-    models: [
-      { name: 'Gemini 3.6 Flash (High)', limit: '高优先级算力', used: '35%' },
-      { name: 'Gemini 3.6 Pro', limit: '海量 Token 额度', used: '28%' }
-    ],
-    lastUpdated: new Date().toISOString()
-  }
-}
-
-const buildCodexQuota = (planType = '开发者 Pro 版'): AccountQuota => {
-  const { secondsRemaining, resetTimeString } = calculateQuotaResetTime()
-  return {
-    usedPercentage: 42,
-    remainingPercentage: 58,
-    status: 'healthy',
-    resetIntervalHours: 5,
-    secondsRemaining: secondsRemaining + 120,
-    nextResetTime: resetTimeString,
-    subscriptionTier: planType,
-    models: [
-      { name: 'gpt-4o-codex', limit: '500 请求 / 5小时', used: '42%' },
-      { name: 'o3-mini-reasoning', limit: '200 请求 / 5小时', used: '18%' }
-    ],
-    lastUpdated: new Date().toISOString()
-  }
-}
-
-// 内存保底备用
 let accountsFallback: ManagedAccount[] = []
 
-// 获取所有托管账号 (从 Supabase 数据库按需拉取)
-export const listAccounts = async (): Promise<ManagedAccount[]> => {
-  const { secondsRemaining, resetTimeString } = calculateQuotaResetTime()
+const fallbackQuota: AccountQuota = {
+  usedPercentage: 0,
+  remainingPercentage: 100,
+  status: 'untested',
+  resetIntervalHours: 5,
+  secondsRemaining: 18000,
+  nextResetTime: '05:00:00'
+}
 
+export const listAccounts = async (): Promise<ManagedAccount[]> => {
   try {
     const { data, error } = await supabase
       .from('api_key_configs')
@@ -63,9 +31,9 @@ export const listAccounts = async (): Promise<ManagedAccount[]> => {
     if (!error && data && data.length > 0) {
       return data.map((row) => {
         const isAg = row.provider === 'google-antigravity'
-        const quotaData = row.token_plane_quota || (isAg ? buildAntigravityQuota() : buildCodexQuota(row.plan_type))
-        quotaData.secondsRemaining = Math.max(0, secondsRemaining)
-        quotaData.nextResetTime = resetTimeString
+        const quotaData: AccountQuota = row.token_plane_quota
+          ? { ...row.token_plane_quota, status: row.token_plane_quota.status || 'healthy' }
+          : fallbackQuota
 
         return {
           id: row.id,
@@ -75,7 +43,6 @@ export const listAccounts = async (): Promise<ManagedAccount[]> => {
           status: (row.status as any) || 'active',
           refreshToken: row.api_key,
           accessToken: row.api_key,
-          planType: row.plan_type || (isAg ? 'Pro / Ultra 优先配额' : '开发者 Pro 版'),
           quota: quotaData,
           createdAt: row.created_at || new Date().toISOString(),
           updatedAt: row.last_tested_at || new Date().toISOString()
@@ -86,14 +53,7 @@ export const listAccounts = async (): Promise<ManagedAccount[]> => {
     console.warn('[Supabase Accounts 读取提示]', err.message)
   }
 
-  return accountsFallback.map((acc) => ({
-    ...acc,
-    quota: {
-      ...acc.quota,
-      secondsRemaining: Math.max(0, secondsRemaining),
-      nextResetTime: resetTimeString
-    }
-  }))
+  return accountsFallback
 }
 
 export const getAccountById = async (id: string): Promise<ManagedAccount | undefined> => {
@@ -101,13 +61,24 @@ export const getAccountById = async (id: string): Promise<ManagedAccount | undef
   return accounts.find((a) => a.id === id)
 }
 
-// 添加 Google Antigravity 账号并持久化至 Supabase
 export const addAntigravityAccount = async (
   input: CreateAntigravityAccountInput
 ): Promise<AntigravityAccount> => {
   const now = new Date().toISOString()
   const accountId = `ag_${Date.now()}`
-  const quota = buildAntigravityQuota()
+
+  const provider = QuotaProviderFactory.getProvider('google-antigravity')
+  const fetchRes = await provider.fetchQuota({
+    id: accountId,
+    name: input.name || `Antigravity (${input.email.split('@')[0]})`,
+    type: 'token-plane',
+    provider: 'google-antigravity',
+    baseUrl: 'https://daily-cloudcode-pa.googleapis.com',
+    apiKey: input.refreshToken,
+    refreshToken: input.refreshToken,
+    model: '',
+    status: 'untested'
+  })
 
   const dbRow = {
     id: accountId,
@@ -116,12 +87,11 @@ export const addAntigravityAccount = async (
     provider: 'google-antigravity',
     base_url: 'https://daily-cloudcode-pa.googleapis.com',
     api_key: input.refreshToken,
-    model: 'Gemini 3.6 Flash / Pro',
+    model: '',
     email: input.email,
-    plan_type: 'Pro / Ultra 优先配额',
-    status: 'active',
+    status: fetchRes.status,
     last_tested_at: now,
-    token_plane_quota: quota
+    token_plane_quota: fetchRes.tokenPlaneQuota
   }
 
   try {
@@ -130,16 +100,20 @@ export const addAntigravityAccount = async (
     console.error('[Supabase Account 写入错误]', err.message)
   }
 
+  const accountQuota: AccountQuota = fetchRes.tokenPlaneQuota
+    ? { ...fetchRes.tokenPlaneQuota, status: fetchRes.status === 'active' ? 'healthy' : 'warning' }
+    : fallbackQuota
+
   const account: AntigravityAccount = {
     id: accountId,
     platform: 'antigravity',
     email: input.email,
     name: dbRow.name,
-    status: 'active',
+    status: fetchRes.status === 'active' ? 'active' : 'disabled',
     refreshToken: input.refreshToken,
     projectId: input.projectId || 'antigravity-cloud-code-prod',
     isGcpTos: true,
-    quota,
+    quota: accountQuota,
     createdAt: now,
     updatedAt: now
   }
@@ -148,14 +122,25 @@ export const addAntigravityAccount = async (
   return account
 }
 
-// 添加 OpenAI Codex 账号并持久化至 Supabase
 export const addCodexAccount = async (
   input: CreateCodexAccountInput
 ): Promise<CodexAccount> => {
   const now = new Date().toISOString()
   const accountId = `codex_${Date.now()}`
-  const planType = input.planType || '开发者 Pro 版'
-  const quota = buildCodexQuota(planType)
+  const token = input.accessToken || input.apiKey || ''
+
+  const provider = QuotaProviderFactory.getProvider('openai-codex')
+  const fetchRes = await provider.fetchQuota({
+    id: accountId,
+    name: input.name || `Codex (${input.email.split('@')[0]})`,
+    type: 'token-plane',
+    provider: 'openai-codex',
+    baseUrl: 'https://chatgpt.com/backend-api',
+    apiKey: token,
+    accessToken: token,
+    model: '',
+    status: 'untested'
+  })
 
   const dbRow = {
     id: accountId,
@@ -163,13 +148,12 @@ export const addCodexAccount = async (
     type: 'token-plane',
     provider: 'openai-codex',
     base_url: 'https://chatgpt.com/backend-api',
-    api_key: input.accessToken || input.apiKey || '',
-    model: 'gpt-4o-codex / o3-mini',
+    api_key: token,
+    model: '',
     email: input.email,
-    plan_type: planType,
-    status: 'active',
+    status: fetchRes.status,
     last_tested_at: now,
-    token_plane_quota: quota
+    token_plane_quota: fetchRes.tokenPlaneQuota
   }
 
   try {
@@ -178,17 +162,20 @@ export const addCodexAccount = async (
     console.error('[Supabase Account 写入错误]', err.message)
   }
 
+  const accountQuota: AccountQuota = fetchRes.tokenPlaneQuota
+    ? { ...fetchRes.tokenPlaneQuota, status: fetchRes.status === 'active' ? 'healthy' : 'warning' }
+    : fallbackQuota
+
   const account: CodexAccount = {
     id: accountId,
     platform: 'codex',
     email: input.email,
     name: dbRow.name,
-    status: 'active',
+    status: fetchRes.status === 'active' ? 'active' : 'disabled',
     authType: input.authType,
     accessToken: input.accessToken,
     apiKey: input.apiKey,
-    planType,
-    quota,
+    quota: accountQuota,
     createdAt: now,
     updatedAt: now
   }
@@ -197,38 +184,54 @@ export const addCodexAccount = async (
   return account
 }
 
-// 刷新指定账号配额
 export const refreshAccountQuota = async (id: string): Promise<ManagedAccount> => {
   const account = await getAccountById(id)
   if (!account) {
     throw new Error(`Account with id ${id} not found`)
   }
 
-  const newQuota =
-    account.platform === 'antigravity'
-      ? buildAntigravityQuota()
-      : buildCodexQuota((account as CodexAccount).planType)
+  const isAg = account.platform === 'antigravity'
+  const token = (account as AntigravityAccount).refreshToken || (account as CodexAccount).accessToken || (account as CodexAccount).apiKey || ''
+  const provider = QuotaProviderFactory.getProvider(isAg ? 'google-antigravity' : 'openai-codex')
+
+  const fetchRes = await provider.fetchQuota({
+    id: account.id,
+    name: account.name,
+    type: 'token-plane',
+    provider: isAg ? 'google-antigravity' : 'openai-codex',
+    baseUrl: isAg ? 'https://daily-cloudcode-pa.googleapis.com' : 'https://chatgpt.com/backend-api',
+    apiKey: token,
+    refreshToken: token,
+    accessToken: token,
+    model: '',
+    status: 'untested'
+  })
+
+  const now = new Date().toISOString()
 
   try {
     await supabase
       .from('api_key_configs')
       .update({
-        token_plane_quota: newQuota,
-        last_tested_at: new Date().toISOString()
+        token_plane_quota: fetchRes.tokenPlaneQuota,
+        last_tested_at: now
       })
       .eq('id', id)
   } catch (err: any) {
     console.error('[Supabase Account 刷新错误]', err.message)
   }
 
+  const updatedQuota: AccountQuota = fetchRes.tokenPlaneQuota
+    ? { ...fetchRes.tokenPlaneQuota, status: fetchRes.status === 'active' ? 'healthy' : 'warning' }
+    : account.quota
+
   return {
     ...account,
-    quota: newQuota,
-    updatedAt: new Date().toISOString()
+    quota: updatedQuota,
+    updatedAt: now
   }
 }
 
-// 删除指定账号
 export const deleteAccount = async (id: string): Promise<boolean> => {
   try {
     await supabase.from('api_key_configs').delete().eq('id', id)

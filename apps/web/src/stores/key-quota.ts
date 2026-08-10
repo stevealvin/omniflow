@@ -4,8 +4,30 @@ import { http } from '@/utils/http'
 
 export interface QuotaModelItem {
   name: string
-  limit: string
+  limit?: string
   used: string
+}
+
+export interface TokenPlaneQuota {
+  usedPercentage: number
+  remainingPercentage: number
+  status?: 'healthy' | 'warning' | 'exhausted' | 'untested'
+  resetIntervalHours: number
+  secondsRemaining: number
+  nextResetTime: string
+  planType?: string
+  models?: QuotaModelItem[]
+  rawQuotaData?: any // 完整保存并返回上游 API 响应的原始数据 JSON
+}
+
+export interface ApiKeyQuotaInfo {
+  remainingRequests?: number
+  remainingTokens?: number
+  limitRequests?: number
+  limitTokens?: number
+  resetTimeStr?: string
+  latencyMs?: number
+  statusMessage?: string
 }
 
 export interface ApiKeyConfig {
@@ -14,34 +36,17 @@ export interface ApiKeyConfig {
   type: 'token-plane' | 'api-key'
   provider: 'google-antigravity' | 'openai-codex' | 'openai-compatible' | 'google-aistudio' | 'anthropic' | 'generic'
   baseUrl: string
-  apiKey: string
+  apiKey?: string
+  refreshToken?: string
+  accessToken?: string
   model: string
   status: 'active' | 'error' | 'untested'
   lastTestedAt?: string
-
-  // Token Plane 专属字段
   email?: string
   planType?: string
-  tokenPlaneQuota?: {
-    usedPercentage: number
-    remainingPercentage: number
-    resetIntervalHours: number
-    secondsRemaining: number
-    nextResetTime: string
-    subscriptionTier?: string
-    models?: QuotaModelItem[]
-  }
 
-  // API Key 专属 Rate-Limit 字段
-  quotaInfo?: {
-    remainingRequests?: number
-    remainingTokens?: number
-    limitRequests?: number
-    limitTokens?: number
-    resetTimeStr?: string
-    latencyMs?: number
-    statusMessage?: string
-  }
+  tokenPlaneQuota?: TokenPlaneQuota
+  quotaInfo?: ApiKeyQuotaInfo
 }
 
 export const useKeyQuotaStore = defineStore('keyQuota', () => {
@@ -50,7 +55,6 @@ export const useKeyQuotaStore = defineStore('keyQuota', () => {
   const checkingId = ref<string | null>(null)
   const checkingAll = ref(false)
 
-  // 定时器用于实时递减 Token Plane 的 5h 重置倒计时
   let timer: any = null
 
   const startCountdown = () => {
@@ -64,7 +68,6 @@ export const useKeyQuotaStore = defineStore('keyQuota', () => {
     }, 1000)
   }
 
-  // 获取所有 Key 与 Token Plane 账号列表
   const fetchKeys = async () => {
     loading.value = true
     try {
@@ -77,7 +80,6 @@ export const useKeyQuotaStore = defineStore('keyQuota', () => {
     }
   }
 
-  // 添加 API Key 或 Token Plane 账号
   const addKey = async (payload: Partial<ApiKeyConfig>) => {
     loading.value = true
     try {
@@ -92,7 +94,6 @@ export const useKeyQuotaStore = defineStore('keyQuota', () => {
     }
   }
 
-  // 更新配置
   const updateKey = async (id: string, payload: Partial<ApiKeyConfig>) => {
     loading.value = true
     try {
@@ -108,7 +109,6 @@ export const useKeyQuotaStore = defineStore('keyQuota', () => {
     }
   }
 
-  // 删除 Key 或 Token Plane 账号
   const deleteKey = async (id: string) => {
     const res = await http.delete(`/keys/${id}`).catch(() => null)
     if (res && res.success) {
@@ -118,7 +118,6 @@ export const useKeyQuotaStore = defineStore('keyQuota', () => {
     return false
   }
 
-  // 单个探针/配额刷新测试
   const checkSingleKey = async (id: string) => {
     checkingId.value = id
     try {
@@ -132,7 +131,6 @@ export const useKeyQuotaStore = defineStore('keyQuota', () => {
     }
   }
 
-  // 批量探针/配额检测
   const checkAllKeys = async () => {
     checkingAll.value = true
     try {

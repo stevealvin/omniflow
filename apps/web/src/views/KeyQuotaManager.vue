@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useKeyQuotaStore, type ApiKeyConfig } from '@/stores/key-quota'
 import { message } from 'antdv-next'
 import {
@@ -14,163 +14,168 @@ import {
   Globe,
   Lock,
   Cpu,
-  Clock,
-  Sparkles,
-  Search,
-  UserCheck,
-  Shield,
-  Layers
+  Clock
 } from '@lucide/vue'
 
 const keyQuotaStore = useKeyQuotaStore()
 
-const searchQuery = ref('')
-const selectedCategory = ref<'all' | 'token-plane' | 'api-key'>('all')
-const selectedProvider = ref<string>('all')
-
-// 模态框控制
+// 模态框与提交状态控制
 const isModalVisible = ref(false)
 const isEditing = ref(false)
 const editingId = ref<string | null>(null)
+const isSubmitting = ref(false)
 
 // 增加资源 modal 页签模式
 const modalTab = ref<'token-plane' | 'api-key'>('token-plane')
 
+const providerOptions = [
+  { label: 'Google Antigravity (托管 Token)', value: 'google-antigravity' },
+  { label: 'OpenAI Codex (托管 Token)', value: 'openai-codex' },
+  { label: 'OpenAI Compatible (通用 API)', value: 'openai-compatible' },
+  { label: 'Google AI Studio', value: 'google-aistudio' },
+  { label: 'Anthropic Claude', value: 'anthropic' },
+  { label: 'Generic (其他通用)', value: 'generic' }
+]
+
 const formData = ref({
   name: '',
   type: 'token-plane' as 'token-plane' | 'api-key',
-  provider: 'google-antigravity' as ApiKeyConfig['provider'],
-  baseUrl: 'https://daily-cloudcode-pa.googleapis.com',
+  provider: '' as ApiKeyConfig['provider'] | '',
+  baseUrl: '',
   apiKey: '',
-  model: 'Gemini 3.6 Flash / Pro',
-  email: '',
-  planType: 'Pro / Ultra 优先配额'
+  refreshToken: '',
+  accessToken: '',
+  model: '',
+  email: ''
 })
 
-// 平台预设控制 helper
-const applyPreset = (type: 'antigravity' | 'codex' | 'google' | 'openai' | 'deepseek' | 'anthropic') => {
-  if (type === 'antigravity') {
+// 选择 Provider 变化时自动填充默认 Base URL 与默认模型 (不设置默认名称)
+const handleProviderChange = (val: any) => {
+  if (!val) return
+  if (val === 'google-antigravity') {
     modalTab.value = 'token-plane'
-    formData.value.name = 'Google Antigravity 工作账号'
-    formData.value.type = 'token-plane'
-    formData.value.provider = 'google-antigravity'
     formData.value.baseUrl = 'https://daily-cloudcode-pa.googleapis.com'
     formData.value.model = 'Gemini 3.6 Flash / Pro'
-    formData.value.planType = 'Pro / Ultra 优先配额'
-  } else if (type === 'codex') {
+  } else if (val === 'openai-codex') {
     modalTab.value = 'token-plane'
-    formData.value.name = 'OpenAI Codex Pro 账号'
-    formData.value.type = 'token-plane'
-    formData.value.provider = 'openai-codex'
     formData.value.baseUrl = 'https://chatgpt.com/backend-api'
-    formData.value.model = 'gpt-4o-codex / o3-mini'
-    formData.value.planType = '开发者 Pro 版'
-  } else if (type === 'google') {
+    formData.value.model = 'gpt-4o-codex'
+  } else if (val === 'google-aistudio') {
     modalTab.value = 'api-key'
-    formData.value.name = 'Google AI Studio Key'
-    formData.value.type = 'api-key'
-    formData.value.provider = 'google-aistudio'
     formData.value.baseUrl = 'https://generativelanguage.googleapis.com'
     formData.value.model = 'gemini-2.5-flash'
-  } else if (type === 'openai') {
+  } else if (val === 'openai-compatible') {
     modalTab.value = 'api-key'
-    formData.value.name = 'OpenAI 官方通用 Key'
-    formData.value.type = 'api-key'
-    formData.value.provider = 'openai-compatible'
     formData.value.baseUrl = 'https://api.openai.com'
     formData.value.model = 'gpt-4o'
-  } else if (type === 'deepseek') {
+  } else if (val === 'anthropic') {
     modalTab.value = 'api-key'
-    formData.value.name = 'DeepSeek 官方 API Key'
-    formData.value.type = 'api-key'
-    formData.value.provider = 'openai-compatible'
-    formData.value.baseUrl = 'https://api.deepseek.com'
-    formData.value.model = 'deepseek-chat'
-  } else if (type === 'anthropic') {
-    modalTab.value = 'api-key'
-    formData.value.name = 'Anthropic Claude Key'
-    formData.value.type = 'api-key'
-    formData.value.provider = 'anthropic'
     formData.value.baseUrl = 'https://api.anthropic.com'
     formData.value.model = 'claude-3-7-sonnet-20250219'
+  } else if (val === 'generic') {
+    modalTab.value = 'api-key'
+    if (!formData.value.baseUrl) formData.value.baseUrl = 'https://'
   }
 }
 
-// 倒计时格式化 HH:MM:SS
+// 切换大类 Tab 时处理
+const handleTabChange = (type: 'token-plane' | 'api-key') => {
+  modalTab.value = type
+  if (type === 'token-plane') {
+    if (formData.value.provider !== 'google-antigravity' && formData.value.provider !== 'openai-codex') {
+      formData.value.provider = 'google-antigravity'
+      handleProviderChange('google-antigravity')
+    }
+  } else {
+    if (formData.value.provider === 'google-antigravity' || formData.value.provider === 'openai-codex') {
+      formData.value.provider = 'openai-compatible'
+      handleProviderChange('openai-compatible')
+    }
+  }
+}
+
+// 倒计时格式化 HH:MM:SS (空值时返回空字符串，不设置默认值)
 const formatCountdown = (totalSeconds?: number) => {
-  if (!totalSeconds || totalSeconds <= 0) return '00:00:00 (重置中)'
+  if (!totalSeconds || totalSeconds <= 0) return ''
   const hrs = Math.floor(totalSeconds / 3600)
   const mins = Math.floor((totalSeconds % 3600) / 60)
   const secs = totalSeconds % 60
   return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
 }
 
-// 掩码脱敏 API Key 显示
-const maskKey = (key: string) => {
+// 掩码脱敏 API Key / Token 显示
+const maskKey = (key?: string) => {
   if (!key) return ''
   if (key.length <= 10) return '••••••••'
   return `${key.slice(0, 6)}••••••••${key.slice(-4)}`
 }
 
-// 过滤后的列表
-const filteredKeys = computed(() => {
-  return keyQuotaStore.keys.filter((item) => {
-    const matchesSearch =
-      item.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      item.model.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      (item.email || '').toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      item.baseUrl.toLowerCase().includes(searchQuery.value.toLowerCase())
-    
-    const matchesCategory =
-      selectedCategory.value === 'all' || item.type === selectedCategory.value
-
-    const matchesProvider =
-      selectedProvider.value === 'all' || item.provider === selectedProvider.value
-
-    return matchesSearch && matchesCategory && matchesProvider
-  })
-})
+const formRef = ref()
 
 const openAddModal = () => {
   isEditing.value = false
   editingId.value = null
-  applyPreset('antigravity')
+  isSubmitting.value = false
+  modalTab.value = 'token-plane'
+  formData.value = {
+    name: '',
+    type: 'token-plane',
+    provider: '' as any,
+    baseUrl: '',
+    apiKey: '',
+    refreshToken: '',
+    accessToken: '',
+    model: '',
+    email: ''
+  }
   isModalVisible.value = true
+  formRef.value?.clearValidate()
 }
 
 const openEditModal = (item: ApiKeyConfig) => {
   isEditing.value = true
   editingId.value = item.id
+  isSubmitting.value = false
   modalTab.value = item.type || 'api-key'
   formData.value = {
     name: item.name,
     type: item.type || 'api-key',
     provider: item.provider,
     baseUrl: item.baseUrl,
-    apiKey: item.apiKey,
-    model: item.model,
-    email: item.email || '',
-    planType: item.planType || ''
+    apiKey: item.apiKey || '',
+    refreshToken: item.refreshToken || '',
+    accessToken: item.accessToken || '',
+    model: item.model || '',
+    email: item.email || ''
   }
   isModalVisible.value = true
+  formRef.value?.clearValidate()
 }
 
 const handleSave = async () => {
-  if (!formData.value.name) {
-    message.warning('请填写名称')
+  try {
+    await formRef.value?.validate()
+  } catch (err) {
     return
   }
 
-  formData.value.type = modalTab.value
+  isSubmitting.value = true
+  try {
+    formData.value.type = modalTab.value
 
-  if (isEditing.value && editingId.value) {
-    await keyQuotaStore.updateKey(editingId.value, formData.value)
-    message.success('更新成功')
-  } else {
-    await keyQuotaStore.addKey(formData.value)
-    message.success('添加成功')
+    if (isEditing.value && editingId.value) {
+      await keyQuotaStore.updateKey(editingId.value, formData.value as any)
+      message.success('更新 API 资源成功')
+    } else {
+      await keyQuotaStore.addKey(formData.value as any)
+      message.success('添加 API 资源成功')
+    }
+    isModalVisible.value = false
+  } catch (err: any) {
+    message.error('提交失败: ' + (err.message || '未知网络异常'))
+  } finally {
+    isSubmitting.value = false
   }
-  isModalVisible.value = false
 }
 
 const handleDelete = async (id: string) => {
@@ -219,87 +224,29 @@ onMounted(() => {
           <template #icon>
             <Plus class="w-4 h-4" />
           </template>
-          添加资源 (Token / Key)
+          新建 API 资源
         </a-button>
       </div>
     </div>
 
-    <!-- 顶部分类 Segment & 搜索工具栏 -->
-    <div class="flex flex-col md:flex-row items-center justify-between gap-4 bg-white dark:bg-zinc-900 p-3 rounded-2xl border border-slate-200/80 dark:border-zinc-800/80 shadow-sm">
-      <!-- 资源类型分类切换 (Token Plane vs API Key) -->
-      <div class="flex items-center p-1 bg-slate-100 dark:bg-zinc-800/80 rounded-xl w-full md:w-auto">
-        <button
-          type="button"
-          @click="selectedCategory = 'all'"
-          :class="[
-            'px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all',
-            selectedCategory === 'all'
-              ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-sm'
-              : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-          ]"
-        >
-          全部资源 ({{ keyQuotaStore.keys.length }})
-        </button>
+    <!-- 加载中状态 -->
+    <div v-if="keyQuotaStore.loading" class="py-16 text-center bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200/80 dark:border-zinc-800/80 shadow-sm">
+      <a-spin tip="正在加载 API 资源与配额数据..." />
+    </div>
 
-        <button
-          type="button"
-          @click="selectedCategory = 'token-plane'"
-          :class="[
-            'px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5',
-            selectedCategory === 'token-plane'
-              ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
-              : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-          ]"
-        >
-          <Zap class="w-3.5 h-3.5 text-indigo-500" />
-          Token Plane 托管账号
-        </button>
-
-        <button
-          type="button"
-          @click="selectedCategory = 'api-key'"
-          :class="[
-            'px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5',
-            selectedCategory === 'api-key'
-              ? 'bg-white dark:bg-zinc-900 text-emerald-600 dark:text-emerald-400 shadow-sm'
-              : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-          ]"
-        >
-          <Key class="w-3.5 h-3.5 text-emerald-500" />
-          API Key 通用密钥
-        </button>
-      </div>
-
-      <!-- 搜索与筛选 -->
-      <div class="flex items-center gap-3 w-full md:w-auto">
-        <div class="relative flex-1 md:w-64">
-          <Search class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            v-model="searchQuery"
-            type="text"
-            placeholder="搜索名称、邮箱、模型或 Endpoint..."
-            class="w-full pl-9 pr-4 py-1.5 text-xs rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700 focus:outline-none focus:border-indigo-500 text-slate-900 dark:text-slate-100"
-          />
-        </div>
-
-        <select
-          v-model="selectedProvider"
-          class="text-xs px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700 focus:outline-none text-slate-700 dark:text-slate-200"
-        >
-          <option value="all">全部平台</option>
-          <option value="google-antigravity">Google Antigravity</option>
-          <option value="openai-codex">OpenAI Codex</option>
-          <option value="google-aistudio">Google AI Studio</option>
-          <option value="openai-compatible">OpenAI 通用/中转</option>
-          <option value="anthropic">Anthropic Claude</option>
-        </select>
-      </div>
+    <!-- 暂无数据空状态 -->
+    <div v-else-if="keyQuotaStore.keys.length === 0" class="py-16 bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200/80 dark:border-zinc-800/80 shadow-sm p-8 text-center">
+      <a-empty description="暂无配置记录">
+        <a-button type="primary" @click="openAddModal" class="!mt-3 !bg-indigo-600 hover:!bg-indigo-500">
+          新建 API 资源
+        </a-button>
+      </a-empty>
     </div>
 
     <!-- 资源列表 Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-6">
       <a-card
-        v-for="item in filteredKeys"
+        v-for="item in keyQuotaStore.keys"
         :key="item.id"
         variant="borderless"
         class="rounded-2xl border border-slate-200/90 dark:border-zinc-800/90 bg-white dark:bg-zinc-900 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden"
@@ -320,8 +267,8 @@ onMounted(() => {
                 <h3 class="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
                   {{ item.name }}
                 </h3>
-                <p class="text-xs font-mono text-slate-400 mt-0.5">
-                  {{ item.email || 'token-plane@omniflow.dev' }}
+                <p v-if="item.email" class="text-xs font-mono text-slate-400 mt-0.5">
+                  {{ item.email }}
                 </p>
               </div>
             </div>
@@ -334,32 +281,38 @@ onMounted(() => {
             </a-tag>
           </div>
 
-          <!-- 配额进度条 -->
-          <div class="mt-4 p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-100 dark:border-zinc-800 space-y-2">
+          <!-- 配额进度条 (真实拉取到数据时展示) -->
+          <div v-if="item.tokenPlaneQuota" class="mt-4 p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-100 dark:border-zinc-800 space-y-2">
             <div class="flex justify-between items-center text-xs">
-              <span class="text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <span v-if="formatCountdown(item.tokenPlaneQuota.secondsRemaining)" class="text-slate-500 dark:text-slate-400 flex items-center gap-1">
                 <Clock class="w-3.5 h-3.5 text-indigo-500" />
                 重置倒计时:
                 <span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold">
-                  {{ formatCountdown(item.tokenPlaneQuota?.secondsRemaining) }}
+                  {{ formatCountdown(item.tokenPlaneQuota.secondsRemaining) }}
                 </span>
               </span>
-              <span class="font-mono font-bold text-slate-800 dark:text-slate-200">
-                剩余 {{ item.tokenPlaneQuota?.remainingPercentage ?? 60 }}%
+              <span class="font-mono font-bold text-slate-800 dark:text-slate-200 ml-auto">
+                剩余 {{ item.tokenPlaneQuota.remainingPercentage }}%
               </span>
             </div>
             <a-progress
-              :percent="item.tokenPlaneQuota?.remainingPercentage ?? 60"
+              :percent="item.tokenPlaneQuota.remainingPercentage"
               :show-info="false"
               :stroke-color="item.provider === 'google-antigravity' ? '#6366f1' : '#10b981'"
               size="small"
             />
           </div>
 
+          <!-- 未同步 / 探针未测试提示 -->
+          <div v-else class="mt-4 p-3 rounded-xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-900/60 text-xs text-amber-700 dark:text-amber-400 flex items-center gap-2">
+            <AlertCircle class="w-4 h-4 shrink-0" />
+            <span>尚未获取上游配额数据</span>
+          </div>
+
           <!-- 绑定模型细分 -->
-          <div class="mt-3 space-y-1.5 text-xs">
+          <div v-if="item.tokenPlaneQuota?.models && item.tokenPlaneQuota.models.length > 0" class="mt-3 space-y-1.5 text-xs">
             <div
-              v-for="m in item.tokenPlaneQuota?.models || []"
+              v-for="m in item.tokenPlaneQuota.models"
               :key="m.name"
               class="flex items-center justify-between py-1 px-2.5 rounded-lg bg-slate-100/70 dark:bg-zinc-800/70 text-slate-600 dark:text-slate-300"
             >
@@ -380,7 +333,7 @@ onMounted(() => {
                 <h3 class="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
                   {{ item.name }}
                 </h3>
-                <div class="flex items-center gap-2 mt-0.5">
+                <div v-if="item.apiKey" class="flex items-center gap-2 mt-0.5">
                   <span class="text-xs font-mono text-slate-400 flex items-center gap-1">
                     <Lock class="w-3 h-3" />
                     {{ maskKey(item.apiKey) }}
@@ -400,17 +353,17 @@ onMounted(() => {
 
           <!-- 详细信息：模型与 Endpoint -->
           <div class="mt-4 p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-100 dark:border-zinc-800 space-y-2 text-xs">
-            <div class="flex items-center justify-between">
+            <div v-if="item.model" class="flex items-center justify-between">
               <span class="text-slate-400 flex items-center gap-1">
                 <Cpu class="w-3.5 h-3.5 text-indigo-500" />
-                目标模型
+                绑定模型
               </span>
               <span class="font-mono font-semibold text-slate-800 dark:text-slate-200 px-2 py-0.5 rounded bg-slate-200/60 dark:bg-zinc-700/60">
                 {{ item.model }}
               </span>
             </div>
 
-            <div class="flex items-center justify-between">
+            <div v-if="item.baseUrl" class="flex items-center justify-between">
               <span class="text-slate-400 flex items-center gap-1">
                 <Globe class="w-3.5 h-3.5 text-sky-500" />
                 Endpoint
@@ -421,24 +374,24 @@ onMounted(() => {
             </div>
           </div>
 
-          <!-- 探针指标：RPM / TPM / Latency -->
-          <div class="mt-4 pt-3 border-t border-slate-100 dark:border-zinc-800 grid grid-cols-3 gap-2 text-center">
+          <!-- 探针指标：仅在存在探针响应时展示 -->
+          <div v-if="item.quotaInfo" class="mt-4 pt-3 border-t border-slate-100 dark:border-zinc-800 grid grid-cols-3 gap-2 text-center">
             <div>
               <span class="text-[11px] text-slate-400">剩余请求 (RPM)</span>
               <div class="text-base font-bold font-mono text-indigo-600 dark:text-indigo-400 mt-0.5">
-                {{ item.quotaInfo?.remainingRequests ?? '---' }}
+                {{ item.quotaInfo.remainingRequests !== undefined ? item.quotaInfo.remainingRequests : '' }}
               </div>
             </div>
             <div>
               <span class="text-[11px] text-slate-400">剩余 Tokens (TPM)</span>
               <div class="text-base font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-0.5">
-                {{ item.quotaInfo?.remainingTokens ? `${(item.quotaInfo.remainingTokens / 1000).toFixed(0)}K` : '---' }}
+                {{ item.quotaInfo.remainingTokens !== undefined ? `${(item.quotaInfo.remainingTokens / 1000).toFixed(0)}K` : '' }}
               </div>
             </div>
             <div>
               <span class="text-[11px] text-slate-400">探针延迟</span>
               <div class="text-base font-bold font-mono text-sky-600 dark:text-sky-400 mt-0.5">
-                {{ item.quotaInfo?.latencyMs ? `${item.quotaInfo.latencyMs} ms` : '---' }}
+                {{ item.quotaInfo.latencyMs !== undefined ? `${item.quotaInfo.latencyMs} ms` : '' }}
               </div>
             </div>
           </div>
@@ -446,9 +399,10 @@ onMounted(() => {
 
         <!-- 卡片底部操作栏 -->
         <div class="mt-4 pt-3 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between">
-          <span class="text-[11px] text-slate-400 font-mono">
-            {{ item.lastTestedAt ? `上次更新: ${new Date(item.lastTestedAt).toLocaleTimeString()}` : '未同步' }}
+          <span v-if="item.lastTestedAt" class="text-[11px] text-slate-400 font-mono">
+            上次更新: {{ new Date(item.lastTestedAt).toLocaleTimeString() }}
           </span>
+          <span v-else></span>
 
           <div class="flex items-center gap-2">
             <a-button
@@ -497,126 +451,104 @@ onMounted(() => {
       </a-card>
     </div>
 
-    <!-- 添加 / 编辑资源 Modal 弹窗 -->
+    <!-- 添加 / 编辑 API 资源 Modal 弹窗 -->
     <a-modal
       v-model:open="isModalVisible"
-      :title="isEditing ? '编辑 API 资源配置' : '添加通用 API 资源'"
+      :title="isEditing ? '编辑 API 资源' : '新建 API 资源'"
+      :confirm-loading="isSubmitting"
       @ok="handleSave"
-      ok-text="保存资源配置"
+      :ok-text="isEditing ? '保存修改' : '确认提交'"
       cancel-text="取消"
       class="rounded-2xl"
+      width="520px"
     >
-      <div class="space-y-4 pt-2">
+      <a-form
+        ref="formRef"
+        :model="formData"
+        layout="vertical"
+        class="!pt-2"
+      >
         <!-- 资源大类 Tab: Token Plane vs API Key -->
-        <div v-if="!isEditing" class="p-1 bg-slate-100 dark:bg-zinc-800 rounded-xl grid grid-cols-2 text-center text-xs font-semibold">
-          <button
-            type="button"
-            @click="applyPreset('antigravity')"
-            :class="['py-2 rounded-lg transition-all', modalTab === 'token-plane' ? 'bg-white dark:bg-zinc-900 text-indigo-600 shadow-sm' : 'text-slate-500']"
-          >
-            Token Plane (托管账号)
-          </button>
-          <button
-            type="button"
-            @click="applyPreset('openai')"
-            :class="['py-2 rounded-lg transition-all', modalTab === 'api-key' ? 'bg-white dark:bg-zinc-900 text-emerald-600 shadow-sm' : 'text-slate-500']"
-          >
-            API Key (通用密钥)
-          </button>
-        </div>
+        <a-form-item v-if="!isEditing" label="资源大类">
+          <a-radio-group v-model:value="modalTab" button-style="solid" class="!w-full !flex">
+            <a-radio-button value="token-plane" class="!flex-1 !text-center" @click="handleTabChange('token-plane')">
+              Token Plane (托管账号)
+            </a-radio-button>
+            <a-radio-button value="api-key" class="!flex-1 !text-center" @click="handleTabChange('api-key')">
+              API Key (通用密钥)
+            </a-radio-button>
+          </a-radio-group>
+        </a-form-item>
 
-        <!-- 快捷预设按钮组 -->
-        <div>
-          <label class="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5 block">快捷预设填充:</label>
-          <div class="flex flex-wrap gap-2">
-            <button
-              type="button"
-              @click="applyPreset('antigravity')"
-              class="px-2.5 py-1 rounded-lg text-xs font-medium bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100"
-            >
-              Google Antigravity
-            </button>
-            <button
-              type="button"
-              @click="applyPreset('codex')"
-              class="px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100"
-            >
-              OpenAI Codex
-            </button>
-            <button
-              type="button"
-              @click="applyPreset('google')"
-              class="px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 hover:bg-blue-100"
-            >
-              Google AI Studio Key
-            </button>
-            <button
-              type="button"
-              @click="applyPreset('openai')"
-              class="px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-zinc-700 hover:bg-slate-200"
-            >
-              OpenAI 官方 Key
-            </button>
-          </div>
-        </div>
+        <!-- 服务提供商 (Provider) 下拉选择框（选择后自动触发填充） -->
+        <a-form-item label="服务提供商 (Provider)" name="provider" required>
+          <a-select
+            v-model:value="formData.provider"
+            :options="providerOptions"
+            @change="handleProviderChange"
+            placeholder="请选择服务提供商"
+            class="!w-full"
+          />
+        </a-form-item>
 
         <!-- 资源名称 -->
-        <div>
-          <label class="text-xs font-medium text-slate-700 dark:text-slate-300 mb-1 block">资源标识名称 *</label>
-          <input
-            v-model="formData.name"
-            type="text"
-            placeholder="例如: Google Antigravity 主账号 或 OpenAI API Key"
-            class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 focus:outline-none focus:border-indigo-500 text-slate-900 dark:text-slate-100"
+        <a-form-item label="资源名称" name="name" required>
+          <a-input
+            v-model:value="formData.name"
+            placeholder="请输入资源名称"
           />
-        </div>
+        </a-form-item>
 
-        <!-- Token Plane 专属: 邮箱 -->
-        <div v-if="modalTab === 'token-plane'">
-          <label class="text-xs font-medium text-slate-700 dark:text-slate-300 mb-1 block">账号邮箱 (Email)</label>
-          <input
-            v-model="formData.email"
-            type="text"
-            placeholder="例如: user@antigravity.google"
-            class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 focus:outline-none focus:border-indigo-500 text-slate-900 dark:text-slate-100"
+        <!-- 模型名称 -->
+        <a-form-item label="模型名称 (Model)" name="model" required>
+          <a-input
+            v-model:value="formData.model"
+            placeholder="例如: gpt-4o, claude-3-7-sonnet, gemini-2.5-flash"
           />
-        </div>
+        </a-form-item>
 
-        <!-- API Key / Token 值 -->
-        <div>
-          <label class="text-xs font-medium text-slate-700 dark:text-slate-300 mb-1 block">
-            {{ modalTab === 'token-plane' ? 'Refresh Token / Access Token *' : 'API Key 密钥值 *' }}
-          </label>
-          <input
-            v-model="formData.apiKey"
-            type="password"
-            placeholder="输入 Token 令牌或 sk-*** 密钥"
-            class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 focus:outline-none focus:border-indigo-500 text-slate-900 dark:text-slate-100 font-mono"
-          />
-        </div>
+        <!-- Token Plane 专属: 邮箱、Refresh Token 与 Access Token -->
+        <template v-if="modalTab === 'token-plane'">
+          <a-form-item label="账号邮箱 (Email)" name="email">
+            <a-input
+              v-model:value="formData.email"
+              placeholder="请输入关联账号邮箱"
+            />
+          </a-form-item>
+
+          <a-form-item label="Refresh Token (长效刷新令牌)" name="refreshToken" required>
+            <a-input-password
+              v-model:value="formData.refreshToken"
+              placeholder="请输入长效 Refresh Token"
+            />
+          </a-form-item>
+
+          <a-form-item label="Access Token (短效访问令牌)" name="accessToken">
+            <a-input-password
+              v-model:value="formData.accessToken"
+              placeholder="请输入短效 Access Token (选填)"
+            />
+          </a-form-item>
+        </template>
+
+        <!-- API Key 专属: API Key 密钥 -->
+        <template v-else>
+          <a-form-item label="API Key 密钥" name="apiKey" required>
+            <a-input-password
+              v-model:value="formData.apiKey"
+              placeholder="请输入 sk-*** 密钥"
+            />
+          </a-form-item>
+        </template>
 
         <!-- Base URL -->
-        <div>
-          <label class="text-xs font-medium text-slate-700 dark:text-slate-300 mb-1 block">接口 Base URL *</label>
-          <input
-            v-model="formData.baseUrl"
-            type="text"
+        <a-form-item label="接口 Base URL" name="baseUrl" required>
+          <a-input
+            v-model:value="formData.baseUrl"
             placeholder="https://..."
-            class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 focus:outline-none focus:border-indigo-500 text-slate-900 dark:text-slate-100 font-mono"
           />
-        </div>
-
-        <!-- Model -->
-        <div>
-          <label class="text-xs font-medium text-slate-700 dark:text-slate-300 mb-1 block">目标模型 / 绑定模型</label>
-          <input
-            v-model="formData.model"
-            type="text"
-            placeholder="gemini-2.5-flash, gpt-4o 等"
-            class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 focus:outline-none focus:border-indigo-500 text-slate-900 dark:text-slate-100 font-mono"
-          />
-        </div>
-      </div>
+        </a-form-item>
+      </a-form>
     </a-modal>
   </div>
 </template>

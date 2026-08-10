@@ -64,8 +64,7 @@ accountsRouter.post('/accounts/codex', async (c) => {
       name,
       authType: authType || 'oauth',
       accessToken,
-      apiKey,
-      planType: planType || '开发者 Pro 版'
+      apiKey
     })
 
     return c.json({

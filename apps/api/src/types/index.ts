@@ -1,59 +1,76 @@
 // AI 算力与模型配额细分定义
 export interface QuotaModelItem {
   name: string
-  limit: string
+  limit?: string
   used: string
 }
 
-// 单个 AI 服务配额状态定义
+// 专属 Token Plane 算力配额结构（仅在真实查得上游配额时存在，无数据时为 undefined）
+export interface TokenPlaneQuota {
+  usedPercentage: number
+  remainingPercentage: number
+  status?: 'healthy' | 'warning' | 'exhausted' | 'untested'
+  resetIntervalHours: number
+  secondsRemaining: number
+  nextResetTime: string
+  planType?: string
+  models?: QuotaModelItem[]
+  rawQuotaData?: any // 完整保存并返回上游 API 响应的原始数据 JSON
+}
+
+// API Key 专属 Rate-Limit 探针信息
+export interface ApiKeyQuotaInfo {
+  remainingRequests?: number
+  remainingTokens?: number
+  limitRequests?: number
+  limitTokens?: number
+  resetTimeStr?: string
+  latencyMs?: number
+  statusMessage?: string
+}
+
+// 全局 AI 算力大盘展示项
 export interface QuotaItem {
   id: string
   name: string
   tier: string
   usedPercentage: number
   remainingPercentage: number
-  status: 'healthy' | 'warning' | 'exhausted'
+  status: 'healthy' | 'warning' | 'exhausted' | 'untested'
   resetIntervalHours: number
   secondsRemaining: number
   nextResetTime: string
   models?: QuotaModelItem[]
+  rawQuotaData?: any
 }
 
 export type KeyQuotaType = 'token-plane' | 'api-key'
 
-// 通用 API Key 与 Token Plane 额度/Rate-Limit 配置定义
+// 通用 API Key 与 Token Plane 额度配置定义
 export interface ApiKeyConfig {
   id: string
   name: string
   type: KeyQuotaType // 'token-plane' | 'api-key'
   provider: 'google-antigravity' | 'openai-codex' | 'openai-compatible' | 'google-aistudio' | 'anthropic' | 'generic'
   baseUrl: string
-  apiKey: string // 对 Token Plane 而言可作为 Refresh Token 或 Access Token
+  apiKey?: string
+  refreshToken?: string
+  accessToken?: string
   model: string
   status: 'active' | 'error' | 'untested'
   lastTestedAt?: string
-  
-  // Token Plane 专属扩展信息 (Antigravity & Codex)
   email?: string
   planType?: string
-  tokenPlaneQuota?: {
-    usedPercentage: number
-    remainingPercentage: number
-    resetIntervalHours: number
-    secondsRemaining: number
-    nextResetTime: string
-    subscriptionTier?: string
-    models?: QuotaModelItem[]
-  }
 
-  // API Key 专属 Rate-Limit 信息
-  quotaInfo?: {
-    remainingRequests?: number
-    remainingTokens?: number
-    limitRequests?: number
-    limitTokens?: number
-    resetTimeStr?: string
-    latencyMs?: number
-    statusMessage?: string
-  }
+  // 仅在真实拉取到上游数据时填充，取消默认假数据填充
+  tokenPlaneQuota?: TokenPlaneQuota
+  quotaInfo?: ApiKeyQuotaInfo
+}
+
+// 策略模式 Provider 执行返回数据结构
+export interface QuotaFetchResult {
+  status: 'active' | 'error' | 'untested'
+  tokenPlaneQuota?: TokenPlaneQuota
+  quotaInfo?: ApiKeyQuotaInfo
+  lastTestedAt: string
 }

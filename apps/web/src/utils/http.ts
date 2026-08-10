@@ -3,6 +3,9 @@ import axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosResponse 
 // 从 Vite 环境变量中读取基础接口地址（默认 fallback 为 /api）
 const baseURL = import.meta.env.VITE_API_BASE_URL || '/api'
 
+console.log(baseURL);
+
+
 // 创建 Axios 实例
 const instance: AxiosInstance = axios.create({
   baseURL,
@@ -37,16 +40,16 @@ instance.interceptors.response.use(
 // 封装类型安全的 HTTP 请求 helper 方法
 export const http = {
   get<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
-    return instance.get(url, config)
+    return instance.get(url, config) as unknown as Promise<T>
   },
   post<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
-    return instance.post(url, data, config)
+    return instance.post(url, data, config) as unknown as Promise<T>
   },
   put<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
-    return instance.put(url, data, config)
+    return instance.put(url, data, config) as unknown as Promise<T>
   },
   delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
-    return instance.delete(url, config)
+    return instance.delete(url, config) as unknown as Promise<T>
   },
 }
 

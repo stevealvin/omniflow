@@ -12,6 +12,7 @@ export interface QuotaItem {
   id: string
   name: string
   tier: string
+  planType?: string
   usedPercentage: number
   remainingPercentage: number
   status: 'healthy' | 'warning' | 'exhausted'

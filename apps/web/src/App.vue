@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { theme } from 'antdv-next'
+import zhCN from 'antdv-next/locale/zh_CN'
 import { useThemeStore } from '@/stores/theme'
 
 const themeStore = useThemeStore()
@@ -12,6 +13,7 @@ const currentAlgorithm = computed(() => {
 
 <template>
   <a-config-provider
+    :locale="zhCN"
     :theme="{
       algorithm: currentAlgorithm,
       token: {

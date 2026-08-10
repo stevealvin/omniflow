@@ -21,7 +21,7 @@
 }
 
 /* 高端 Apple / Linear 风格星环网格渐变背景 */
-.bg-mesh-light {
+/* .bg-mesh-light {
   background: 
     radial-gradient(at 5% 5%, rgba(99, 102, 241, 0.18) 0px, transparent 50%),
     radial-gradient(at 95% 10%, rgba(56, 189, 248, 0.15) 0px, transparent 50%),
@@ -37,7 +37,7 @@
     radial-gradient(at 85% 85%, rgba(14, 165, 233, 0.20) 0px, transparent 55%),
     radial-gradient(at 15% 90%, rgba(79, 70, 229, 0.22) 0px, transparent 55%),
     linear-gradient(135deg, #090d16 0%, #0f172a 50%, #090d16 100%);
-}
+} */
 
 /* 强沉浸感 Apple macOS 磨砂玻璃 (Frosted Glassmorphism) Header */
 .glass-header {

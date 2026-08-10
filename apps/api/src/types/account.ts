@@ -2,19 +2,19 @@ export type AccountPlatform = 'antigravity' | 'codex' | 'claude' | 'deepseek'
 
 export interface QuotaModel {
   name: string
-  limit: string
+  limit?: string
   used: string
 }
 
 export interface AccountQuota {
   usedPercentage: number
   remainingPercentage: number
-  status: 'healthy' | 'warning' | 'exhausted'
+  status: 'healthy' | 'warning' | 'exhausted' | 'untested'
   resetIntervalHours: number
   secondsRemaining: number
   nextResetTime: string
-  models: QuotaModel[]
-  subscriptionTier?: string
+  models?: QuotaModel[]
+  planType?: string
   lastUpdated?: string
 }
 

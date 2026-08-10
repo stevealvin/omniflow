@@ -25,18 +25,22 @@ keyQuotaRouter.post('/keys', async (c) => {
   if (!body.name) {
     return c.json({ success: false, message: '请填写名称' }, 400)
   }
+  if (!body.provider) {
+    return c.json({ success: false, message: '请选择服务提供商' }, 400)
+  }
 
   const isTokenPlane = body.type === 'token-plane' || body.provider === 'google-antigravity' || body.provider === 'openai-codex'
 
   const newKey = await addApiKey({
     name: body.name,
     type: isTokenPlane ? 'token-plane' : 'api-key',
-    provider: body.provider || 'openai-compatible',
-    baseUrl: body.baseUrl || (body.provider === 'google-antigravity' ? 'https://daily-cloudcode-pa.googleapis.com' : 'https://api.openai.com'),
-    apiKey: body.apiKey || body.refreshToken || '',
-    model: body.model || (body.provider === 'google-antigravity' ? 'Gemini 3.6 Flash / Pro' : 'gpt-4o'),
-    email: body.email,
-    planType: body.planType
+    provider: body.provider,
+    baseUrl: body.baseUrl || '',
+    apiKey: body.apiKey || '',
+    refreshToken: body.refreshToken || '',
+    accessToken: body.accessToken || '',
+    model: body.model || '',
+    email: body.email
   })
 
   return c.json({
