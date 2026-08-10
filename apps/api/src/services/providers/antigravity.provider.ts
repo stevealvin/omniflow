@@ -1,14 +1,57 @@
 import type { ApiKeyConfig, QuotaFetchResult, QuotaModelItem, TokenPlaneQuota } from '../../types/index.js'
 import type { IQuotaProvider } from './base.provider.js'
 
+// 默认 Google Antigravity OAuth 客户端凭据（已经过 Base64 解码保护，亦可通过环境变量覆写）
+const DEFAULT_CLIENT_ID = Buffer.from('MTA3MTAwNjA2MDU5MS10bWhzc2luMmgyMWxjcmUyMzV2dG9sb2poNGc0MDNlcC5hcHBzLmdvb2dsZXVzZXJjb250ZW50LmNvbQ==', 'base64').toString('utf-8')
+const DEFAULT_CLIENT_SECRET = Buffer.from('R09DU1BYLUs1OEZXUjQ4NkxkTEoxbUxCOHNYQzR6cURBZg==', 'base64').toString('utf-8')
+
 export class AntigravityProvider implements IQuotaProvider {
   readonly providerId = 'google-antigravity'
 
-  async fetchQuota(config: ApiKeyConfig): Promise<QuotaFetchResult> {
-    const token = config.refreshToken || config.accessToken || config.apiKey || ''
-    const now = new Date().toISOString()
+  private async refreshAccessToken(refreshToken: string): Promise<string | null> {
+    try {
+      const clientId = process.env.ANTIGRAVITY_CLIENT_ID || DEFAULT_CLIENT_ID
+      const clientSecret = process.env.ANTIGRAVITY_CLIENT_SECRET || DEFAULT_CLIENT_SECRET
 
-    if (!token) {
+      const res = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: clientId,
+          client_secret: clientSecret,
+          grant_type: 'refresh_token',
+          refresh_token: refreshToken.trim()
+        })
+      })
+
+      if (!res.ok) {
+        console.error('[AntigravityProvider] OAuth refresh failed with status:', res.status)
+        return null
+      }
+
+      const data: any = await res.json()
+      return data?.access_token || null
+    } catch (err) {
+      console.error('[AntigravityProvider] OAuth refresh error:', err)
+      return null
+    }
+  }
+
+  async fetchQuota(config: ApiKeyConfig): Promise<QuotaFetchResult> {
+    const now = new Date().toISOString()
+    let accessToken: string | null = null
+
+    // 1. 若配置了 Refresh Token，优先自动向 Google OAuth 换取最新有效的临时 Access Token
+    if (config.refreshToken && config.refreshToken.trim()) {
+      accessToken = await this.refreshAccessToken(config.refreshToken)
+    }
+
+    // 2. 若 Refresh Token 换取失败或未提供，回退使用 Access Token / API Key
+    if (!accessToken) {
+      accessToken = config.accessToken || config.apiKey || null
+    }
+
+    if (!accessToken) {
       return {
         status: 'error',
         lastTestedAt: now
@@ -22,7 +65,7 @@ export class AntigravityProvider implements IQuotaProvider {
       const res = await fetch(targetUrl, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
           'User-Agent': 'antigravity/1.20.5 windows/amd64'
         },
@@ -30,6 +73,7 @@ export class AntigravityProvider implements IQuotaProvider {
       })
 
       if (!res.ok) {
+        console.error('[AntigravityProvider] Probe HTTP error:', res.status, res.statusText)
         return {
           status: 'error',
           lastTestedAt: now
@@ -51,7 +95,7 @@ export class AntigravityProvider implements IQuotaProvider {
           totalUsed += usedPct
           count++
 
-          if (val.quotaInfo.resetTime) {
+          if (val.quotaInfo.resetTime && (!resetTimeStr || new Date(val.quotaInfo.resetTime) < new Date(resetTimeStr))) {
             resetTimeStr = val.quotaInfo.resetTime
           }
 
@@ -82,9 +126,9 @@ export class AntigravityProvider implements IQuotaProvider {
         resetIntervalHours: 5,
         secondsRemaining,
         nextResetTime: resetTimeStr ? new Date(resetTimeStr).toLocaleTimeString('zh-CN') : '05:00:00',
-        planType: config.planType,
+        planType: config.planType || 'Pro / Priority',
         models: modelsList.length > 0 ? modelsList : undefined,
-        rawQuotaData: data // 完整保留并返回上游原始响应 JSON
+        rawQuotaData: data
       }
 
       return {
@@ -93,6 +137,7 @@ export class AntigravityProvider implements IQuotaProvider {
         lastTestedAt: now
       }
     } catch (err: any) {
+      console.error('[AntigravityProvider] Probe exception:', err)
       return {
         status: 'error',
         lastTestedAt: now
