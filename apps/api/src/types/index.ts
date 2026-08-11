@@ -1,8 +1,10 @@
-// AI 算力与模型配额细分定义
-export interface QuotaModelItem {
+// 分类明细额度结构（如 Gemini 算力池、Claude 算力池等）
+export interface QuotaDetailItem {
   name: string
-  limit?: string
-  used: string
+  providerGroup: string // 'Gemini' | 'Claude' | 'OpenAI' | 'Other'
+  remainingPercentage: number
+  secondsRemaining: number
+  nextResetTime: string
 }
 
 // 专属 Token Plane 算力配额结构（仅在真实查得上游配额时存在，无数据时为 undefined）
@@ -14,7 +16,7 @@ export interface TokenPlaneQuota {
   secondsRemaining: number
   nextResetTime: string
   planType?: string
-  models?: QuotaModelItem[]
+  details?: QuotaDetailItem[] // 通用配额分类明细列表
   rawQuotaData?: any // 完整保存并返回上游 API 响应的原始数据 JSON
 }
 
@@ -40,7 +42,6 @@ export interface QuotaItem {
   resetIntervalHours: number
   secondsRemaining: number
   nextResetTime: string
-  models?: QuotaModelItem[]
   rawQuotaData?: any
 }
 
@@ -51,12 +52,11 @@ export interface ApiKeyConfig {
   id: string
   name: string
   type: KeyQuotaType // 'token-plane' | 'api-key'
-  provider: 'google-antigravity' | 'openai-codex' | 'openai-compatible' | 'google-aistudio' | 'anthropic' | 'generic'
+  provider: 'google-antigravity' | 'openai-codex' | 'openai-compatible' | 'google-aistudio' | 'generic'
   baseUrl: string
   apiKey?: string
   refreshToken?: string
   accessToken?: string
-  model: string
   status: 'active' | 'error' | 'untested'
   lastTestedAt?: string
   email?: string

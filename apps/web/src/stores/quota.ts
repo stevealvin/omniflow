@@ -1,219 +1,169 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, computed, reactive } from 'vue'
 import { http } from '@/utils/http'
 
-export interface QuotaModelItem {
+export interface QuotaDetailItem {
   name: string
-  limit: string
-  used: string
+  providerGroup: string
+  remainingPercentage: number
+  secondsRemaining: number
+  nextResetTime: string
 }
 
-export interface QuotaItem {
-  id: string
-  name: string
-  tier: string
-  planType?: string
+export interface TokenPlaneQuota {
   usedPercentage: number
   remainingPercentage: number
-  status: 'healthy' | 'warning' | 'exhausted'
+  status?: 'healthy' | 'warning' | 'exhausted' | 'untested'
   resetIntervalHours: number
   secondsRemaining: number
   nextResetTime: string
-  models?: QuotaModelItem[]
+  planType?: string
+  details?: QuotaDetailItem[]
+  rawQuotaData?: any
 }
 
-export interface ManagedAccount {
+export interface ApiKeyQuotaInfo {
+  remainingRequests?: number
+  remainingTokens?: number
+  limitRequests?: number
+  limitTokens?: number
+  resetTimeStr?: string
+  latencyMs?: number
+  statusMessage?: string
+}
+
+export interface ApiKeyConfig {
   id: string
-  platform: 'antigravity' | 'codex' | 'claude' | 'deepseek'
-  email: string
   name: string
-  status: 'active' | 'error' | 'disabled'
-  quota: QuotaItem
-  createdAt: string
-  updatedAt: string
+  type: 'token-plane' | 'api-key'
+  provider: 'google-antigravity' | 'openai-codex' | 'openai-compatible' | 'google-aistudio' | 'generic'
+  baseUrl: string
+  apiKey?: string
   refreshToken?: string
-  authType?: string
+  accessToken?: string
+  status: 'active' | 'error' | 'untested'
+  lastTestedAt?: string
+  email?: string
   planType?: string
+
+  tokenPlaneQuota?: TokenPlaneQuota
+  quotaInfo?: ApiKeyQuotaInfo
 }
 
 export const useQuotaStore = defineStore('quota', () => {
-  const loading = ref(false)
-  const accountsLoading = ref(false)
-  const lastUpdated = ref<string | null>(null)
-  const accounts = ref<ManagedAccount[]>([])
-
-  const quotaData = ref<Record<string, QuotaItem>>({
-    antigravity: {
-      id: 'antigravity',
-      name: 'Google Antigravity',
-      tier: 'Pro / Ultra 优先配额',
-      usedPercentage: 35,
-      remainingPercentage: 65,
-      status: 'healthy',
-      resetIntervalHours: 5,
-      secondsRemaining: 12450,
-      nextResetTime: '04:30:00',
-      models: [
-        { name: 'Gemini 3.6 Flash (High)', limit: '高优先级算力', used: '35%' },
-        { name: 'Gemini 3.6 Pro', limit: '海量 Token 额度', used: '28%' }
-      ]
-    },
-    codex: {
-      id: 'codex',
-      name: 'OpenAI Codex / Copilot',
-      tier: '开发者 Pro 版',
-      usedPercentage: 42,
-      remainingPercentage: 58,
-      status: 'healthy',
-      resetIntervalHours: 5,
-      secondsRemaining: 13200,
-      nextResetTime: '04:30:00',
-      models: [
-        { name: 'gpt-4o-codex', limit: '500 请求 / 5小时', used: '42%' },
-        { name: 'o3-mini-reasoning', limit: '200 请求 / 5小时', used: '18%' }
-      ]
-    },
-    claude: {
-      id: 'claude',
-      name: 'Claude 3.7 Sonnet',
-      tier: 'Max Tokens 配额',
-      usedPercentage: 15,
-      remainingPercentage: 85,
-      status: 'healthy',
-      resetIntervalHours: 5,
-      secondsRemaining: 9800,
-      nextResetTime: '04:30:00'
-    },
-    deepseek: {
-      id: 'deepseek',
-      name: 'DeepSeek-V3 / R1',
-      tier: 'API 无限制模式',
-      usedPercentage: 8,
-      remainingPercentage: 92,
-      status: 'healthy',
-      resetIntervalHours: 24,
-      secondsRemaining: 43200,
-      nextResetTime: '23:59:59'
-    }
-  })
-
-  // 定时器引用，用于实时递减额度重置倒计时
+  const keys = ref<ApiKeyConfig[]>([])
+  const isLoading = ref(false)
+  const checkingAll = ref(false)
+  const checkingIds = reactive<Record<string, boolean>>({})
   let timer: any = null
 
+  // 兼容别名属性 loading
+  const loading = computed(() => isLoading.value)
+
+  // 判断指定 Key 是否正在测试中 (支持多卡片并行并发加载)
+  const isKeyChecking = (id: string) => !!checkingIds[id]
+
+  // 启动倒计时计数器
   const startCountdown = () => {
-    if (timer) clearInterval(timer)
+    if (timer) return
     timer = setInterval(() => {
-      Object.keys(quotaData.value).forEach((key) => {
-        if (quotaData.value[key].secondsRemaining > 0) {
-          quotaData.value[key].secondsRemaining -= 1
+      keys.value.forEach((k) => {
+        if (k.tokenPlaneQuota && k.tokenPlaneQuota.secondsRemaining > 0) {
+          k.tokenPlaneQuota.secondsRemaining -= 1
         }
-      })
-      accounts.value.forEach((acc) => {
-        if (acc.quota && acc.quota.secondsRemaining > 0) {
-          acc.quota.secondsRemaining -= 1
+        if (k.tokenPlaneQuota?.details) {
+          k.tokenPlaneQuota.details.forEach((d) => {
+            if (d.secondsRemaining > 0) d.secondsRemaining -= 1
+          })
         }
       })
     }, 1000)
   }
 
-  const fetchQuota = async () => {
-    loading.value = true
+  // 1. 获取所有 API 资源与密钥列表
+  const fetchKeys = async () => {
+    isLoading.value = true
     try {
-      const res = await http.get('/quota').catch(() => null)
+      const res = await http.get('/quota')
       if (res && res.data) {
-        quotaData.value = res.data
-        lastUpdated.value = new Date().toLocaleTimeString()
-      } else {
-        lastUpdated.value = new Date().toLocaleTimeString()
+        keys.value = res.data
       }
     } finally {
-      loading.value = false
+      isLoading.value = false
     }
   }
 
-  // 获取所有托管账号
-  const fetchAccounts = async () => {
-    accountsLoading.value = true
+  // 2. 刷新测试单个 Key / 资源探针 (支持多按钮并发并行)
+  const checkSingleKey = async (id: string) => {
+    checkingIds[id] = true
     try {
-      const res = await http.get('/accounts').catch(() => null)
+      const res = await http.post(`/quota/${id}/check`)
       if (res && res.data) {
-        accounts.value = res.data
+        const idx = keys.value.findIndex((k) => k.id === id)
+        if (idx !== -1) {
+          keys.value[idx] = res.data
+        }
+      }
+      return res
+    } finally {
+      delete checkingIds[id]
+    }
+  }
+
+  // 3. 刷新全盘所有探针
+  const checkAllKeys = async () => {
+    checkingAll.value = true
+    try {
+      const res = await http.post('/quota/check-all')
+      if (res && res.data) {
+        keys.value = res.data
       }
     } finally {
-      accountsLoading.value = false
+      checkingAll.value = false
     }
   }
 
-  // 添加 Antigravity 账号
-  const addAntigravityAccount = async (payload: {
-    email: string
-    name?: string
-    refreshToken: string
-    projectId?: string
-  }) => {
-    const res = await http.post('/accounts/antigravity', payload)
-    if (res && res.success) {
-      await fetchAccounts()
-      await fetchQuota()
-      return res.data
-    } else {
-      throw new Error(res?.error || '添加 Antigravity 账号失败')
+  // 4. 添加新 API 资源
+  const addKey = async (config: Omit<ApiKeyConfig, 'id' | 'status'>) => {
+    const res = await http.post('/quota', config)
+    if (res && res.data) {
+      keys.value.push(res.data)
     }
+    return res
   }
 
-  // 添加 Codex 账号
-  const addCodexAccount = async (payload: {
-    email: string
-    name?: string
-    authType?: 'oauth' | 'api_key'
-    accessToken?: string
-    apiKey?: string
-    planType?: string
-  }) => {
-    const res = await http.post('/accounts/codex', payload)
-    if (res && res.success) {
-      await fetchAccounts()
-      await fetchQuota()
-      return res.data
-    } else {
-      throw new Error(res?.error || '添加 Codex 账号失败')
+  // 5. 更新 API 资源
+  const updateKey = async (id: string, config: Partial<ApiKeyConfig>) => {
+    const res = await http.put(`/quota/${id}`, config)
+    if (res && res.data) {
+      const idx = keys.value.findIndex((k) => k.id === id)
+      if (idx !== -1) {
+        keys.value[idx] = res.data
+      }
     }
+    return res
   }
 
-  // 刷新特定账号配额
-  const refreshAccountQuota = async (id: string) => {
-    const res = await http.post(`/accounts/${id}/refresh`)
-    if (res && res.success) {
-      await fetchAccounts()
-      return res.data
-    } else {
-      throw new Error(res?.error || '刷新配额失败')
-    }
-  }
-
-  // 删除指定账号
-  const deleteAccount = async (id: string) => {
-    const res = await http.delete(`/accounts/${id}`)
-    if (res && res.success) {
-      await fetchAccounts()
-      return true
-    } else {
-      throw new Error(res?.error || '删除账号失败')
-    }
+  // 6. 删除 API 资源
+  const deleteKey = async (id: string) => {
+    const res = await http.delete(`/quota/${id}`)
+    keys.value = keys.value.filter((k) => k.id !== id)
+    return res
   }
 
   return {
-    quotaData,
-    accounts,
+    keys,
+    isLoading,
     loading,
-    accountsLoading,
-    lastUpdated,
-    fetchQuota,
-    fetchAccounts,
-    addAntigravityAccount,
-    addCodexAccount,
-    refreshAccountQuota,
-    deleteAccount,
-    startCountdown
+    checkingAll,
+    checkingIds,
+    isKeyChecking,
+    startCountdown,
+    fetchKeys,
+    checkSingleKey,
+    checkAllKeys,
+    addKey,
+    updateKey,
+    deleteKey
   }
 })

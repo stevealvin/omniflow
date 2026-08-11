@@ -18,7 +18,7 @@ const router = createRouter({
           path: 'keys',
           name: 'KeyQuotaManager',
           component: () => import('@/views/KeyQuotaManager.vue'),
-          meta: { title: '通用 API 额度管理' }
+          meta: { title: 'API 密钥与算力控制台' }
         },
         {
           path: 'watch-simulator',

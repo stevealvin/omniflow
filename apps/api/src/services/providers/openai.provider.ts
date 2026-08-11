@@ -1,9 +1,16 @@
 import type { ApiKeyConfig, QuotaFetchResult, ApiKeyQuotaInfo } from '../../types/index.js'
 import type { IQuotaProvider } from './base.provider.js'
+import { httpClient } from '../../utils/http.js'
 
+/**
+ * OpenAI Compatible 通用 API 探针 Provider 策略
+ */
 export class OpenAIProvider implements IQuotaProvider {
   readonly providerId = 'openai-compatible'
 
+  /**
+   * 执行 OpenAI / DeepSeek Compatible /v1/models HTTP 探针并解析响应头 Rate-Limit 指标
+   */
   async fetchQuota(config: ApiKeyConfig): Promise<QuotaFetchResult> {
     const start = Date.now()
     const now = new Date().toISOString()
@@ -12,7 +19,6 @@ export class OpenAIProvider implements IQuotaProvider {
     const probeUrl = `${cleanBaseUrl}/v1/models`
 
     const headers: Record<string, string> = {
-      'Accept': 'application/json',
       'User-Agent': 'OmniFlow-QuotaProbe/1.0'
     }
     if (token) {
@@ -20,20 +26,18 @@ export class OpenAIProvider implements IQuotaProvider {
     }
 
     try {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 10000)
-
-      const response = await fetch(probeUrl, {
-        method: 'GET',
-        headers,
-        signal: controller.signal
-      })
-
-      clearTimeout(timeoutId)
+      const response = await httpClient.get(probeUrl, { headers })
       const latencyMs = Date.now() - start
+      const resHeaders = response.headers || {}
+
+      const getHeaderVal = (name: string): string | undefined => {
+        const val = resHeaders[name.toLowerCase()]
+        if (Array.isArray(val)) return val[0]
+        return val ? String(val) : undefined
+      }
 
       const parseHeaderInt = (name: string): number | undefined => {
-        const val = response.headers.get(name) || response.headers.get(`x-${name}`)
+        const val = getHeaderVal(name) || getHeaderVal(`x-${name}`)
         if (!val) return undefined
         const parsed = parseInt(val, 10)
         return isNaN(parsed) ? undefined : parsed
@@ -60,21 +64,12 @@ export class OpenAIProvider implements IQuotaProvider {
         parseHeaderInt('x-ratelimit-limit-tokens')
 
       const resetTimeStr =
-        response.headers.get('x-ratelimit-reset-requests') ||
-        response.headers.get('ratelimit-reset-requests') ||
-        response.headers.get('retry-after') ||
+        getHeaderVal('x-ratelimit-reset-requests') ||
+        getHeaderVal('ratelimit-reset-requests') ||
+        getHeaderVal('retry-after') ||
         undefined
 
-      const isSuccess = response.ok
-
-      let statusMsg = `HTTP ${response.status} (${response.statusText || 'OK'})`
-      if (!isSuccess) {
-        if (response.status === 401 || response.status === 403) {
-          statusMsg = `HTTP ${response.status} (API Key 未填或鉴权失败)`
-        } else if (response.status === 429) {
-          statusMsg = `HTTP 429 (超出 Rate-Limit 速率限制)`
-        }
-      }
+      const isSuccess = response.status >= 200 && response.status < 300
 
       const quotaInfo: ApiKeyQuotaInfo = {
         remainingRequests,
@@ -83,7 +78,7 @@ export class OpenAIProvider implements IQuotaProvider {
         limitTokens,
         resetTimeStr,
         latencyMs,
-        statusMessage: statusMsg
+        statusMessage: `HTTP ${response.status} (OK)`
       }
 
       return {
@@ -93,11 +88,22 @@ export class OpenAIProvider implements IQuotaProvider {
       }
     } catch (error: any) {
       const latencyMs = Date.now() - start
+      const status = error.response?.status
+      let statusMsg = error.message
+
+      if (status === 401 || status === 403) {
+        statusMsg = `HTTP ${status} (API Key 未填或鉴权失败)`
+      } else if (status === 429) {
+        statusMsg = `HTTP 429 (超出 Rate-Limit 速率限制)`
+      } else if (status) {
+        statusMsg = `HTTP ${status} (${error.response?.statusText || 'Error'})`
+      }
+
       return {
         status: 'error',
         quotaInfo: {
           latencyMs,
-          statusMessage: `网络请求失败: ${error.name === 'AbortError' ? '请求超时(10s)' : error.message}`
+          statusMessage: statusMsg
         },
         lastTestedAt: now
       }

@@ -1,228 +1,157 @@
 <script setup lang="ts">
-import { ref, onMounted, reactive } from 'vue'
-import { useQuotaStore } from '@/stores/quota'
-import { message } from 'antdv-next'
+import { computed, onMounted } from 'vue'
+import { useQuotaStore, type ApiKeyConfig, type QuotaDetailItem } from '@/stores/quota'
 import {
-  Cpu,
   Zap,
   Clock,
   CheckCircle2,
-  Sparkles,
+  AlertCircle,
   Activity,
-  TrendingUp,
   BarChart3,
   ShieldCheck,
   RefreshCw,
-  Layers,
-  Radio,
-  Plus,
-  Trash2,
-  UserCheck,
-  Key
+  Key,
+  Globe,
+  Sparkles,
+  Calendar
 } from '@lucide/vue'
 
 const quotaStore = useQuotaStore()
 
-// 弹窗状态
-const isAddModalVisible = ref(false)
-const activeTab = ref<'antigravity' | 'codex'>('antigravity')
-const submitting = ref(false)
-const refreshingAccountId = ref<string | null>(null)
-
-// 表单状态
-const antigravityForm = reactive({
-  email: '',
-  name: '',
-  refreshToken: '',
-  projectId: ''
-})
-
-const codexForm = reactive({
-  email: '',
-  name: '',
-  authType: 'oauth' as 'oauth' | 'api_key',
-  accessToken: '',
-  apiKey: '',
-  planType: ''
-})
-
-// 格式化倒计时秒数 HH:MM:SS
+// 格式化倒计时秒数
 const formatCountdown = (totalSeconds?: number) => {
   if (!totalSeconds || totalSeconds <= 0) return ''
-  const hrs = Math.floor(totalSeconds / 3600)
+  const days = Math.floor(totalSeconds / 86400)
+  const hrs = Math.floor((totalSeconds % 86400) / 3600)
   const mins = Math.floor((totalSeconds % 3600) / 60)
   const secs = totalSeconds % 60
-  return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+
+  const parts: string[] = []
+  if (days > 0) parts.push(`${days}日`)
+  if (hrs > 0 || days > 0) parts.push(`${hrs}时`)
+  if (mins > 0 || hrs > 0 || days > 0) parts.push(`${mins}分`)
+  parts.push(`${secs}秒`)
+
+  return parts.join(' ')
 }
 
-// 指标概览
-const metricsSummary = [
-  {
-    title: '今日 Token 消耗',
-    value: '1.42M',
-    unit: 'Tokens',
-    change: '+12.4%',
-    isPositive: true,
-    icon: BarChart3,
-    color: 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60'
-  },
-  {
-    title: 'API 综合成功率',
-    value: '99.96%',
-    unit: '可用性',
-    change: '+0.02%',
-    isPositive: true,
-    icon: ShieldCheck,
-    color: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60'
-  },
-  {
-    title: '平均请求延迟',
-    value: '24',
-    unit: 'ms',
-    change: '-4ms',
-    isPositive: true,
-    icon: Activity,
-    color: 'text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60'
-  },
-  {
-    title: '5h 重置倒计时',
-    value: '04:28:15',
-    unit: '刷新中',
-    change: '自动刷新',
-    isPositive: true,
-    icon: Clock,
-    color: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60'
-  }
-]
-
-
-// 日志事件流
-const recentEvents = [
-  { time: '23:38:12', title: 'Google Antigravity 算力额度自动轮询计算完成', type: 'info' },
-  { time: '23:35:00', title: 'Redmi Watch 6 完成抬腕算力数据 1 次同步', type: 'success' },
-  { time: '23:20:45', title: 'OpenAI Codex 接口连接状态良好，平均延迟 18ms', type: 'info' },
-  { time: '23:00:00', title: '5小时 AI 算力循环刷新窗口计数递减中', type: 'warning' }
-]
-
-// 打开添加账号 Modal
-const handleOpenAddModal = () => {
-  isAddModalVisible.value = true
-}
-
-// 提交表单添加账号
-const handleSubmitAddAccount = async () => {
-  submitting.value = true
-  try {
-    if (activeTab.value === 'antigravity') {
-      if (!antigravityForm.email || !antigravityForm.refreshToken) {
-        message.warning('请填写完整的邮箱与 Refresh Token')
-        return
-      }
-      await quotaStore.addAntigravityAccount({
-        email: antigravityForm.email,
-        name: antigravityForm.name,
-        refreshToken: antigravityForm.refreshToken,
-        projectId: antigravityForm.projectId
-      })
-      message.success('Google Antigravity 账号添加成功！')
-      antigravityForm.email = ''
-      antigravityForm.name = ''
-      antigravityForm.refreshToken = ''
-      antigravityForm.projectId = ''
-    } else {
-      if (!codexForm.email) {
-        message.warning('请填写账号邮箱')
-        return
-      }
-      await quotaStore.addCodexAccount({
-        email: codexForm.email,
-        name: codexForm.name,
-        authType: codexForm.authType,
-        accessToken: codexForm.accessToken,
-        apiKey: codexForm.apiKey,
-        planType: codexForm.planType
-      })
-      message.success('OpenAI Codex 账号添加成功！')
-      codexForm.email = ''
-      codexForm.name = ''
-      codexForm.accessToken = ''
-      codexForm.apiKey = ''
+// 将 details 列表按 providerGroup 分组 (如 Gemini 算力组、Claude 算力组)
+const groupQuotaDetails = (details?: QuotaDetailItem[]) => {
+  if (!details || details.length === 0) return {}
+  const groups: Record<string, QuotaDetailItem[]> = {}
+  for (const item of details) {
+    const rawGroup = item.providerGroup || '算力池'
+    if (!groups[rawGroup]) {
+      groups[rawGroup] = []
     }
-    isAddModalVisible.value = false
-  } catch (error: any) {
-    message.error(error.message || '添加账号失败，请重试')
-  } finally {
-    submitting.value = false
+    groups[rawGroup].push(item)
   }
+  return groups
 }
 
-// 刷新指定账号配额
-const handleRefreshAccountQuota = async (id: string) => {
-  refreshingAccountId.value = id
-  try {
-    await quotaStore.refreshAccountQuota(id)
-    message.success('已刷新最新配额信息')
-  } catch (error: any) {
-    message.error(error.message || '刷新失败')
-  } finally {
-    refreshingAccountId.value = null
-  }
+// 掩码脱敏显示
+const maskKey = (key?: string) => {
+  if (!key) return ''
+  if (key.length <= 10) return '••••••••'
+  return `${key.slice(0, 6)}••••••••${key.slice(-4)}`
 }
 
-// 删除指定账号
-const handleDeleteAccount = async (id: string) => {
-  try {
-    await quotaStore.deleteAccount(id)
-    message.success('账号已成功删除')
-  } catch (error: any) {
-    message.error(error.message || '删除失败')
-  }
-}
+// 动态真实数据统计（无任何死数据/假数据）
+const metricsSummary = computed(() => {
+  const allKeys = quotaStore.keys
+  const totalCount = allKeys.length
+  const activeCount = allKeys.filter((k) => k.status === 'active').length
+  const errorCount = allKeys.filter((k) => k.status === 'error').length
+
+  const latencies = allKeys
+    .map((k) => k.quotaInfo?.latencyMs)
+    .filter((l): l is number => typeof l === 'number')
+
+  const avgLatency = latencies.length > 0
+    ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length)
+    : undefined
+
+  return [
+    {
+      title: '已配置 API 资源',
+      value: `${totalCount}`,
+      unit: '个资源',
+      statusText: totalCount > 0 ? '资源充沛' : '暂无资源',
+      icon: Key,
+      color: 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60'
+    },
+    {
+      title: '探针正常资源',
+      value: `${activeCount}`,
+      unit: '个正常',
+      statusText: totalCount > 0 ? `健康率 ${Math.round((activeCount / totalCount) * 100)}%` : '待连通',
+      icon: ShieldCheck,
+      color: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60'
+    },
+    {
+      title: '探针异常/告警',
+      value: `${errorCount}`,
+      unit: '个异常',
+      statusText: errorCount === 0 ? '运行良好' : '需要检查',
+      icon: AlertCircle,
+      color: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60'
+    },
+    {
+      title: '平均探针延迟',
+      value: avgLatency !== undefined ? `${avgLatency}` : '---',
+      unit: 'ms',
+      statusText: avgLatency !== undefined ? '响应迅速' : '尚未测试',
+      icon: Activity,
+      color: 'text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60'
+    }
+  ]
+})
+
+// 筛选 Token Plane 托管账号与 API Key 资源
+const tokenPlaneKeys = computed(() => quotaStore.keys.filter((k) => k.type === 'token-plane'))
+const apiKeyResources = computed(() => quotaStore.keys.filter((k) => k.type === 'api-key'))
 
 onMounted(() => {
   quotaStore.startCountdown()
-  quotaStore.fetchQuota()
-  quotaStore.fetchAccounts()
+  quotaStore.fetchKeys()
 })
 </script>
 
 <template>
   <div class="space-y-6">
-    <!-- 大盘顶部控制与副标题栏 -->
+    <!-- 副标题栏与顶栏操作 -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-200/80 dark:border-zinc-800/80">
       <div class="flex items-center gap-2">
         <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60">
-          <Radio class="w-3.5 h-3.5 animate-pulse text-indigo-500" />
-          全盘实时监控中
+          <Zap class="w-3.5 h-3.5 text-indigo-500" />
+          星环流动算力大盘
         </span>
         <span class="text-xs text-slate-500 dark:text-slate-400">
-          星环流动 (OmniFlow) 算力分布与 AI 额度全局数据大盘
+          实时大盘全景：真实呈现 Token Plane 算力剩余与 API Key 联通率
         </span>
       </div>
 
       <div class="flex items-center gap-3">
-
         <a-button
           type="default"
-          :loading="quotaStore.loading"
-          @click="quotaStore.fetchQuota"
+          :loading="quotaStore.checkingAll"
+          @click="quotaStore.checkAllKeys"
           class="inline-flex items-center gap-1.5 font-medium rounded-lg text-xs"
         >
           <template #icon>
             <RefreshCw class="w-3.5 h-3.5" />
           </template>
-          同步大盘数据
+          一键刷新全盘探针
         </a-button>
       </div>
     </div>
 
-    <!-- 1. 核心指标数据卡片组 (4 Grid Metrics Banner) -->
+    <!-- 1. 真实数据指标概览卡片组 (4 Grid Metrics Banner) -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <a-card
+      <div
         v-for="item in metricsSummary"
         :key="item.title"
-        variant="borderless"
-        class="rounded-2xl border border-slate-200/90 dark:border-zinc-800/90 bg-white dark:bg-zinc-900 shadow-sm hover:shadow-md transition-all duration-200"
+        class="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 transition-all duration-200"
       >
         <div class="flex items-center justify-between">
           <span class="text-xs font-medium text-slate-500 dark:text-slate-400">{{ item.title }}</span>
@@ -235,320 +164,209 @@ onMounted(() => {
             <span class="text-2xl font-bold font-mono text-slate-900 dark:text-white tracking-tight">{{ item.value }}</span>
             <span class="text-xs text-slate-400 ml-1 font-sans">{{ item.unit }}</span>
           </div>
-          <span class="inline-flex items-center gap-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-            <TrendingUp class="w-3 h-3" />
-            {{ item.change }}
+          <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">
+            {{ item.statusText }}
           </span>
         </div>
-      </a-card>
+      </div>
     </div>
 
-    <!-- 2. AI 算力与额度核心双卡片 (Google Antigravity & OpenAI Codex) -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <!-- Google Antigravity 卡片 -->
-      <a-card
-        variant="borderless"
-        class="relative overflow-hidden rounded-2xl border border-slate-200/90 dark:border-zinc-800/90 shadow-sm hover:shadow-md transition-all duration-200 bg-white dark:bg-zinc-900"
-      >
-        <div class="flex items-start justify-between">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/70 border border-indigo-100 dark:border-indigo-900 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-              <Zap class="w-5 h-5" />
-            </div>
-            <div>
-              <h3 class="text-lg font-semibold text-slate-900 dark:text-white">
-                {{ quotaStore.quotaData.antigravity?.name || 'Google Antigravity' }}
-              </h3>
-              <p class="text-xs text-slate-500 dark:text-slate-400">
-                {{ quotaStore.quotaData.antigravity?.tier || 'Pro / Ultra 优先配额' }}
-              </p>
-            </div>
-          </div>
-          <a-tag color="success" class="!rounded-md font-medium !px-2">
-            <span class="flex items-center gap-1">
-              <CheckCircle2 class="w-3.5 h-3.5" />
-              配额充沛
-            </span>
-          </a-tag>
-        </div>
-
-        <div class="mt-6 flex flex-col sm:flex-row items-center gap-6">
-          <!-- 环形进度仪表盘 -->
-          <div class="flex-shrink-0 relative w-[120px] h-[120px] flex items-center justify-center">
-            <a-progress
-              type="dashboard"
-              :percent="quotaStore.quotaData.antigravity?.remainingPercentage || 65"
-              :stroke-color="{ '0%': '#818cf8', '100%': '#4f46e5' }"
-              :size="120"
-              :stroke-width="9"
-              :show-info="false"
-            />
-            <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span class="text-[11px] text-slate-400">剩余配额</span>
-              <span class="text-xl font-bold text-slate-900 dark:text-white font-mono">
-                {{ quotaStore.quotaData.antigravity?.remainingPercentage || 65 }}%
-              </span>
-            </div>
-          </div>
-
-          <!-- 配额统计数据与重置时间 -->
-          <div class="flex-1 space-y-3 w-full">
-            <div class="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-100 dark:border-zinc-800">
-              <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
-                <span class="flex items-center gap-1">
-                  <Clock class="w-3.5 h-3.5 text-indigo-500" />
-                  额度重置倒计时
-                </span>
-                <span class="font-mono text-indigo-600 dark:text-indigo-400 font-semibold">
-                  {{ quotaStore.quotaData.antigravity?.nextResetTime || '04:30:00' }} 刷新
-                </span>
-              </div>
-              <div class="text-lg font-mono font-bold text-slate-900 dark:text-white tracking-wide">
-                {{ formatCountdown(quotaStore.quotaData.antigravity?.secondsRemaining || 12450) }}
-              </div>
-            </div>
-
-            <!-- 模型细分占用标签 -->
-            <div class="space-y-1.5">
-              <div
-                v-for="m in quotaStore.quotaData.antigravity?.models || []"
-                :key="m.name"
-                class="flex items-center justify-between text-xs py-1 px-2.5 rounded-lg bg-slate-100/70 dark:bg-zinc-800/70 text-slate-600 dark:text-slate-300"
-              >
-                <span>{{ m.name }}</span>
-                <span class="font-mono text-slate-500 dark:text-slate-400">{{ m.used }} 已用</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </a-card>
-
-      <!-- OpenAI Codex 卡片 -->
-      <a-card
-        variant="borderless"
-        class="relative overflow-hidden rounded-2xl border border-slate-200/90 dark:border-zinc-800/90 shadow-sm hover:shadow-md transition-all duration-200 bg-white dark:bg-zinc-900"
-      >
-        <div class="flex items-start justify-between">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-100 dark:border-emerald-900 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-              <Cpu class="w-5 h-5" />
-            </div>
-            <div>
-              <h3 class="text-lg font-semibold text-slate-900 dark:text-white">
-                {{ quotaStore.quotaData.codex?.name || 'OpenAI Codex / Copilot' }}
-              </h3>
-              <p class="text-xs text-slate-500 dark:text-slate-400">
-                {{ quotaStore.quotaData.codex?.tier || '开发者 Pro 版' }}
-              </p>
-            </div>
-          </div>
-          <a-tag color="processing" class="!rounded-md font-medium !px-2">
-            <span class="flex items-center gap-1">
-              <Activity class="w-3.5 h-3.5" />
-              运行正常
-            </span>
-          </a-tag>
-        </div>
-
-        <div class="mt-6 flex flex-col sm:flex-row items-center gap-6">
-          <!-- 环形进度仪表盘 -->
-          <div class="flex-shrink-0 relative w-[120px] h-[120px] flex items-center justify-center">
-            <a-progress
-              type="dashboard"
-              :percent="quotaStore.quotaData.codex?.remainingPercentage || 58"
-              :stroke-color="{ '0%': '#34d399', '100%': '#059669' }"
-              :size="120"
-              :stroke-width="9"
-              :show-info="false"
-            />
-            <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span class="text-[11px] text-slate-400">剩余配额</span>
-              <span class="text-xl font-bold text-slate-900 dark:text-white font-mono">
-                {{ quotaStore.quotaData.codex?.remainingPercentage || 58 }}%
-              </span>
-            </div>
-          </div>
-
-          <!-- 配额统计数据与重置时间 -->
-          <div class="flex-1 space-y-3 w-full">
-            <div class="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-100 dark:border-zinc-800">
-              <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
-                <span class="flex items-center gap-1">
-                  <Clock class="w-3.5 h-3.5 text-emerald-500" />
-                  额度重置倒计时
-                </span>
-                <span class="font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
-                  {{ quotaStore.quotaData.codex?.nextResetTime || '04:30:00' }} 刷新
-                </span>
-              </div>
-              <div class="text-lg font-mono font-bold text-slate-900 dark:text-white tracking-wide">
-                {{ formatCountdown(quotaStore.quotaData.codex?.secondsRemaining || 13200) }}
-              </div>
-            </div>
-
-            <!-- 模型细分占用标签 -->
-            <div class="space-y-1.5">
-              <div
-                v-for="m in quotaStore.quotaData.codex?.models || []"
-                :key="m.name"
-                class="flex items-center justify-between text-xs py-1 px-2.5 rounded-lg bg-slate-100/70 dark:bg-zinc-800/70 text-slate-600 dark:text-slate-300"
-              >
-                <span>{{ m.name }}</span>
-                <span class="font-mono text-slate-500 dark:text-slate-400">{{ m.used }} 已用</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </a-card>
+    <!-- 加载中状态 -->
+    <div v-if="quotaStore.loading" class="py-16 text-center bg-white dark:bg-zinc-900 rounded-3xl border border-slate-200 dark:border-zinc-800">
+      <a-spin tip="正在拉取真实算力大盘数据..." />
     </div>
 
-    <!-- 3. 已托管的多账号与实时配额列表管理 -->
-    <a-card
-      variant="borderless"
-      class="rounded-2xl border border-slate-200/90 dark:border-zinc-800/90 bg-white dark:bg-zinc-900 shadow-sm"
-    >
-      <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-zinc-800">
-        <div class="flex items-center gap-2">
-          <UserCheck class="w-4 h-4 text-indigo-500" />
-          <h3 class="font-semibold text-slate-900 dark:text-white">已托管 AI 账号与额度列表</h3>
-        </div>
-        <span class="text-xs text-slate-400 font-mono">
-          共托管 {{ quotaStore.accounts.length }} 个账号
-        </span>
-      </div>
+    <!-- 暂无资源数据 -->
+    <div v-else-if="quotaStore.keys.length === 0" class="py-16 bg-white dark:bg-zinc-900 rounded-3xl border border-slate-200 dark:border-zinc-800 p-8 text-center">
+      <a-empty description="大盘暂无 API 资源配置记录">
+        <router-link to="/keys">
+          <a-button type="primary" class="!mt-3 !bg-indigo-600 hover:!bg-indigo-500 !rounded-xl">
+            前往【API 密钥与算力控制台】添加资源
+          </a-button>
+        </router-link>
+      </a-empty>
+    </div>
 
-      <div v-if="quotaStore.accountsLoading" class="py-8 text-center text-xs text-slate-400">
-        正在拉取最新账号与配额信息...
-      </div>
+    <template v-else>
+      <!-- 2. Token Plane 托管账号核心算力大盘卡片 -->
+      <div v-if="tokenPlaneKeys.length > 0" class="space-y-3">
+        <h3 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+          <Zap class="w-4 h-4 text-indigo-500" />
+          Token Plane 托管账号算力配额
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div
+            v-for="item in tokenPlaneKeys"
+            :key="item.id"
+            class="rounded-3xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 space-y-4"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <h4 class="font-bold text-slate-900 dark:text-white text-base">
+                  {{ item.name }}
+                </h4>
+                <p v-if="item.email" class="text-xs font-mono text-slate-400 mt-0.5">
+                  {{ item.email }}
+                </p>
+              </div>
 
-      <div v-else-if="quotaStore.accounts.length === 0" class="py-8 text-center text-xs text-slate-400">
-        暂未添加独立账号，请点击顶部“添加 AI 账号”按钮绑定 Antigravity / Codex 凭据。
-      </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <span
+                  v-if="item.tokenPlaneQuota?.planType || item.planType"
+                  :class="[
+                    'px-2.5 py-0.5 rounded-full text-xs font-extrabold uppercase border tracking-wider',
+                    (item.tokenPlaneQuota?.planType || item.planType)?.includes('ULTRA')
+                      ? 'bg-amber-50 dark:bg-amber-950/70 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800'
+                      : (item.tokenPlaneQuota?.planType || item.planType)?.includes('PRO')
+                      ? 'bg-indigo-50 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800'
+                      : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-zinc-700'
+                  ]"
+                >
+                  {{ item.tokenPlaneQuota?.planType || item.planType }}
+                </span>
+                <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60">
+                  {{ item.provider === 'google-antigravity' ? 'Antigravity' : 'OpenAI Codex' }}
+                </span>
+              </div>
+            </div>
 
-      <div v-else class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div
-          v-for="account in quotaStore.accounts"
-          :key="account.id"
-          class="p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-200/80 dark:border-zinc-800 space-y-3 relative group"
-        >
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2.5">
+            <!-- 半圆仪表盘 -->
+            <div v-if="item.tokenPlaneQuota" class="p-4 rounded-2xl bg-slate-50/80 dark:bg-zinc-800/50 border border-slate-100 dark:border-zinc-800 flex items-center gap-5">
+              <div class="shrink-0 relative w-[100px] h-[100px] flex items-center justify-center">
+                <a-progress
+                  type="dashboard"
+                  :percent="item.tokenPlaneQuota.remainingPercentage"
+                  :size="100"
+                  :stroke-width="9"
+                  :stroke-color="item.provider === 'google-antigravity' ? { '0%': '#818cf8', '100%': '#4f46e5' } : { '0%': '#34d399', '100%': '#059669' }"
+                  :show-info="false"
+                />
+                <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span class="text-[10px] text-slate-400 font-sans">剩余</span>
+                  <span class="text-base font-bold font-mono text-slate-900 dark:text-white">
+                    {{ item.tokenPlaneQuota.remainingPercentage }}%
+                  </span>
+                </div>
+              </div>
+
+              <div class="flex-1 space-y-2 text-xs min-w-0">
+                <div v-if="formatCountdown(item.tokenPlaneQuota.secondsRemaining)" class="flex justify-between items-center py-1.5 px-3 rounded-xl bg-slate-100/80 dark:bg-zinc-800/60">
+                  <span class="text-slate-500 dark:text-slate-400 font-medium">重置倒计时</span>
+                  <span class="font-mono text-indigo-600 dark:text-indigo-400 font-extrabold">
+                    {{ formatCountdown(item.tokenPlaneQuota.secondsRemaining) }}
+                  </span>
+                </div>
+
+                <div v-if="item.tokenPlaneQuota.nextResetTime" class="flex justify-between items-center py-1.5 px-3 rounded-xl bg-slate-100/80 dark:bg-zinc-800/60">
+                  <span class="text-slate-500 dark:text-slate-400 font-medium">重置时刻</span>
+                  <span class="font-mono font-bold text-slate-700 dark:text-slate-300">
+                    {{ item.tokenPlaneQuota.nextResetTime }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 算力池配额明细分组网格 (无顶部分割线纯净排版) -->
+            <div v-if="item.tokenPlaneQuota?.details?.length" class="mt-3 space-y-3">
               <div
-                :class="[
-                  'w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold',
-                  account.platform === 'antigravity' ? 'bg-indigo-600' : 'bg-emerald-600'
-                ]"
+                v-for="(groupItems, groupName) in groupQuotaDetails(item.tokenPlaneQuota.details)"
+                :key="groupName"
+                class="space-y-1.5"
               >
-                {{ account.platform === 'antigravity' ? 'AG' : 'CX' }}
+                <!-- 分组标题 (无背景) -->
+                <div class="flex items-center gap-1.5 text-xs font-extrabold text-slate-700 dark:text-slate-300 tracking-tight">
+                  <Sparkles v-if="String(groupName).toLowerCase().includes('gemini')" class="w-3.5 h-3.5 text-indigo-500" />
+                  <Zap v-else-if="String(groupName).toLowerCase().includes('claude')" class="w-3.5 h-3.5 text-amber-500" />
+                  <Globe v-else class="w-3.5 h-3.5 text-sky-500" />
+                  {{ groupName }}
+                </div>
+
+                <!-- 该分组下的算力桶列表 (纯净无背景 + 极简进度条) -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 py-0.5">
+                  <div
+                    v-for="detail in groupItems"
+                    :key="detail.name"
+                    class="flex items-center justify-between text-xs gap-2 py-1 px-1 rounded-md"
+                  >
+                    <div class="min-w-0 flex-1 space-y-1">
+                      <div class="flex items-center justify-between gap-1">
+                        <span class="font-bold text-slate-800 dark:text-slate-200 truncate text-[11px]">
+                          {{ detail.name }}
+                        </span>
+                        <span class="font-black font-mono text-indigo-600 dark:text-indigo-400 text-[11px] shrink-0">
+                          {{ detail.remainingPercentage }}%
+                        </span>
+                      </div>
+                      <!-- 极简 4px 动态进度条 -->
+                      <div class="w-full bg-slate-200/60 dark:bg-zinc-800 h-1 rounded-full overflow-hidden">
+                        <div
+                          class="h-full rounded-full transition-all duration-500"
+                          :class="detail.remainingPercentage > 50 ? 'bg-emerald-500' : detail.remainingPercentage > 15 ? 'bg-amber-500' : 'bg-rose-500'"
+                          :style="{ width: `${detail.remainingPercentage}%` }"
+                        ></div>
+                      </div>
+                    </div>
+
+                    <span v-if="detail.secondsRemaining > 0" class="text-[10px] text-slate-400 font-mono shrink-0 pl-1">
+                      {{ formatCountdown(detail.secondsRemaining) }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div v-else-if="!item.tokenPlaneQuota" class="p-3 text-xs text-amber-600 bg-amber-50/50 rounded-xl border border-amber-200/50 flex items-center gap-2">
+              <AlertCircle class="w-4 h-4 shrink-0" />
+              <span>暂未获取上游配额数据</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. API Key 通用密钥连通状态列表 -->
+      <div v-if="apiKeyResources.length > 0" class="space-y-3 pt-2">
+        <h3 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+          <Key class="w-4 h-4 text-emerald-500" />
+          API Key 通用密钥探针状态
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div
+            v-for="item in apiKeyResources"
+            :key="item.id"
+            class="p-4 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 space-y-2.5"
+          >
+            <div class="flex items-center justify-between">
+              <div>
+                <h4 class="font-bold text-sm text-slate-900 dark:text-white">{{ item.name }}</h4>
+                <p v-if="item.apiKey" class="text-xs font-mono text-slate-400">{{ maskKey(item.apiKey) }}</p>
+              </div>
+
+              <a-tag :color="item.status === 'active' ? 'success' : item.status === 'error' ? 'error' : 'default'">
+                {{ item.status === 'active' ? '正常' : item.status === 'error' ? '异常' : '未测' }}
+              </a-tag>
+            </div>
+
+            <div v-if="item.quotaInfo" class="grid grid-cols-3 gap-2 text-center text-xs pt-1 border-t border-slate-100 dark:border-zinc-800">
+              <div>
+                <span class="text-[10px] text-slate-400">剩余 RPM</span>
+                <p class="font-mono font-bold text-indigo-600">{{ item.quotaInfo.remainingRequests ?? '---' }}</p>
               </div>
               <div>
-                <h4 class="text-sm font-semibold text-slate-900 dark:text-white leading-none">
-                  {{ account.name }}
-                </h4>
-                <p class="text-xs text-slate-400 font-mono mt-1">
-                  {{ account.email }}
+                <span class="text-[10px] text-slate-400">剩余 TPM</span>
+                <p class="font-mono font-bold text-emerald-600">
+                  {{ item.quotaInfo.remainingTokens ? `${(item.quotaInfo.remainingTokens / 1000).toFixed(0)}K` : '---' }}
+                </p>
+              </div>
+              <div>
+                <span class="text-[10px] text-slate-400">探针延迟</span>
+                <p class="font-mono font-bold text-sky-600">
+                  {{ item.quotaInfo.latencyMs ? `${item.quotaInfo.latencyMs}ms` : '---' }}
                 </p>
               </div>
             </div>
-
-            <div class="flex items-center gap-2">
-              <a-button
-                type="text"
-                size="small"
-                :loading="refreshingAccountId === account.id"
-                @click="handleRefreshAccountQuota(account.id)"
-                class="!p-1 text-slate-400 hover:text-indigo-600"
-                title="刷新配额"
-              >
-                <RefreshCw class="w-3.5 h-3.5" />
-              </a-button>
-
-              <a-popconfirm
-                title="确认删除该账号？"
-                ok-text="确认"
-                cancel-text="取消"
-                @confirm="handleDeleteAccount(account.id)"
-              >
-                <a-button
-                  type="text"
-                  danger
-                  size="small"
-                  class="!p-1 text-slate-400 hover:text-red-600"
-                  title="删除账号"
-                >
-                  <Trash2 class="w-3.5 h-3.5" />
-                </a-button>
-              </a-popconfirm>
-            </div>
-          </div>
-
-          <!-- 配额进度条 -->
-          <div v-if="account.quota" class="space-y-1">
-            <div class="flex justify-between text-xs font-mono">
-              <span class="text-slate-500">剩余配额</span>
-              <span class="font-bold text-slate-800 dark:text-slate-200">
-                {{ account.quota.remainingPercentage }}%
-              </span>
-            </div>
-            <a-progress
-              :percent="account.quota.remainingPercentage"
-              :show-info="false"
-              :stroke-color="account.platform === 'antigravity' ? '#6366f1' : '#10b981'"
-              size="small"
-            />
-          </div>
-
-          <!-- 模型细分占用 -->
-          <div v-if="account.quota" class="grid grid-cols-2 gap-2 pt-1 border-t border-slate-200/50 dark:border-zinc-700/50 text-[11px]">
-            <div v-if="account.quota.secondsRemaining" class="flex justify-between text-slate-500">
-              <span>倒计时:</span>
-              <span class="font-mono text-indigo-600 dark:text-indigo-400">
-                {{ formatCountdown(account.quota.secondsRemaining) }}
-              </span>
-            </div>
-            <div v-if="account.quota.planType || account.planType" class="flex justify-between text-slate-500">
-              <span>模式:</span>
-              <span class="font-mono text-slate-700 dark:text-slate-300">
-                {{ account.quota.planType || account.planType }}
-              </span>
-            </div>
           </div>
         </div>
       </div>
-    </a-card>
-
-
-    <!-- 5. 大盘底层：动态事件与日志流 -->
-    <div class="pt-6">
-      <a-card
-        variant="borderless"
-        class="rounded-2xl border border-slate-200/90 dark:border-zinc-800/90 bg-white dark:bg-zinc-900 shadow-sm"
-      >
-        <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800">
-          <div class="flex items-center gap-2">
-            <Sparkles class="w-4 h-4 text-amber-500" />
-            <h3 class="font-semibold text-slate-900 dark:text-white">星环中枢日志事件流</h3>
-          </div>
-          <span class="text-xs text-slate-400 font-mono">实时推演</span>
-        </div>
-
-        <div class="mt-3 divide-y divide-slate-100 dark:divide-zinc-800/60">
-          <div
-            v-for="(event, idx) in recentEvents"
-            :key="idx"
-            class="py-2.5 flex items-center justify-between text-xs"
-          >
-            <div class="flex items-center gap-3">
-              <span class="font-mono text-slate-400">{{ event.time }}</span>
-              <span class="text-slate-700 dark:text-slate-300">{{ event.title }}</span>
-            </div>
-            <a-tag :color="event.type === 'success' ? 'success' : event.type === 'warning' ? 'warning' : 'blue'" class="!rounded-md">
-              正常
-            </a-tag>
-          </div>
-        </div>
-      </a-card>
-    </div>
-
+    </template>
   </div>
 </template>

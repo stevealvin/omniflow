@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useQuotaStore } from '@/stores/quota'
 import { Watch, RefreshCw, Zap, Cpu, Wifi, BatteryCharging, Check } from '@lucide/vue'
 
@@ -7,13 +7,23 @@ const quotaStore = useQuotaStore()
 const isSyncing = ref(false)
 const lastSyncTime = ref(new Date().toLocaleTimeString())
 
+const agKey = computed(() => quotaStore.keys.find((k) => k.provider === 'google-antigravity'))
+const codexKey = computed(() => quotaStore.keys.find((k) => k.provider === 'openai-codex'))
+
+const agRemaining = computed(() => agKey.value?.tokenPlaneQuota?.remainingPercentage ?? 100)
+const codexRemaining = computed(() => codexKey.value?.tokenPlaneQuota?.remainingPercentage ?? 100)
+
 const triggerWatchSync = async () => {
   isSyncing.value = true
   await new Promise((resolve) => setTimeout(resolve, 800))
-  await quotaStore.fetchQuota()
+  await quotaStore.fetchKeys()
   lastSyncTime.value = new Date().toLocaleTimeString()
   isSyncing.value = false
 }
+
+onMounted(() => {
+  quotaStore.fetchKeys()
+})
 </script>
 
 <template>
@@ -86,7 +96,7 @@ const triggerWatchSync = async () => {
               </div>
               <div class="text-right">
                 <div class="text-sm font-bold text-indigo-400 font-mono">
-                  {{ quotaStore.quotaData.antigravity.remainingPercentage }}%
+                  {{ agRemaining }}%
                 </div>
                 <div class="text-[9px] text-zinc-400 font-mono">剩余配额</div>
               </div>
@@ -105,7 +115,7 @@ const triggerWatchSync = async () => {
               </div>
               <div class="text-right">
                 <div class="text-sm font-bold text-emerald-400 font-mono">
-                  {{ quotaStore.quotaData.codex.remainingPercentage }}%
+                  {{ codexRemaining }}%
                 </div>
                 <div class="text-[9px] text-zinc-400 font-mono">剩余配额</div>
               </div>
@@ -121,7 +131,7 @@ const triggerWatchSync = async () => {
           </div>
 
           <!-- Watch Screen Bottom Home Indicator -->
-          <div class="w-16 h-1 bg-zinc-700 mx-auto rounded-full mb-1"></div>
+          <div class="w-16 h-1 bg-zinc-700 rounded-full mx-auto mb-0.5 opacity-60"></div>
         </div>
 
         <!-- Watch Strap Bottom -->

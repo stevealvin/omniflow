@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useKeyQuotaStore, type ApiKeyConfig } from '@/stores/key-quota'
+import { useQuotaStore, type ApiKeyConfig, type QuotaDetailItem } from '@/stores/quota'
 import { message } from 'antdv-next'
 import {
   Key,
@@ -13,11 +13,12 @@ import {
   AlertCircle,
   Globe,
   Lock,
-  Cpu,
-  Clock
+  Clock,
+  Sparkles,
+  Calendar,
 } from '@lucide/vue'
 
-const keyQuotaStore = useKeyQuotaStore()
+const quotaStore = useQuotaStore()
 
 // 模态框与提交状态控制
 const isModalVisible = ref(false)
@@ -28,12 +29,13 @@ const isSubmitting = ref(false)
 // 增加资源 modal 页签模式
 const modalTab = ref<'token-plane' | 'api-key'>('token-plane')
 
+const formRef = ref()
+
 const providerOptions = [
-  { label: 'Google Antigravity (托管 Token)', value: 'google-antigravity' },
-  { label: 'OpenAI Codex (托管 Token)', value: 'openai-codex' },
-  { label: 'OpenAI Compatible (通用 API)', value: 'openai-compatible' },
+  { label: 'Google Antigravity (Gemini Code Assist / PA)', value: 'google-antigravity' },
+  { label: 'OpenAI Codex / Wham (ChatGPT Provider)', value: 'openai-codex' },
+  { label: 'OpenAI Compatible (通用模型接口)', value: 'openai-compatible' },
   { label: 'Google AI Studio', value: 'google-aistudio' },
-  { label: 'Anthropic Claude', value: 'anthropic' },
   { label: 'Generic (其他通用)', value: 'generic' }
 ]
 
@@ -45,33 +47,24 @@ const formData = ref({
   apiKey: '',
   refreshToken: '',
   accessToken: '',
-  model: '',
   email: ''
 })
 
-// 选择 Provider 变化时自动填充默认 Base URL 与默认模型 (不设置默认名称)
+// 选择 Provider 变化时自动填充默认 Base URL
 const handleProviderChange = (val: any) => {
   if (!val) return
   if (val === 'google-antigravity') {
     modalTab.value = 'token-plane'
     formData.value.baseUrl = 'https://daily-cloudcode-pa.googleapis.com'
-    formData.value.model = 'Gemini 3.6 Flash / Pro'
   } else if (val === 'openai-codex') {
     modalTab.value = 'token-plane'
     formData.value.baseUrl = 'https://chatgpt.com/backend-api'
-    formData.value.model = 'gpt-4o-codex'
   } else if (val === 'google-aistudio') {
     modalTab.value = 'api-key'
     formData.value.baseUrl = 'https://generativelanguage.googleapis.com'
-    formData.value.model = 'gemini-2.5-flash'
   } else if (val === 'openai-compatible') {
     modalTab.value = 'api-key'
     formData.value.baseUrl = 'https://api.openai.com'
-    formData.value.model = 'gpt-4o'
-  } else if (val === 'anthropic') {
-    modalTab.value = 'api-key'
-    formData.value.baseUrl = 'https://api.anthropic.com'
-    formData.value.model = 'claude-3-7-sonnet-20250219'
   } else if (val === 'generic') {
     modalTab.value = 'api-key'
     if (!formData.value.baseUrl) formData.value.baseUrl = 'https://'
@@ -94,13 +87,21 @@ const handleTabChange = (type: 'token-plane' | 'api-key') => {
   }
 }
 
-// 倒计时格式化 HH:MM:SS (空值时返回空字符串，不设置默认值)
+// 倒计时格式化为 "X日 X时 X分 X秒"
 const formatCountdown = (totalSeconds?: number) => {
   if (!totalSeconds || totalSeconds <= 0) return ''
-  const hrs = Math.floor(totalSeconds / 3600)
+  const days = Math.floor(totalSeconds / 86400)
+  const hrs = Math.floor((totalSeconds % 86400) / 3600)
   const mins = Math.floor((totalSeconds % 3600) / 60)
   const secs = totalSeconds % 60
-  return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+
+  const parts: string[] = []
+  if (days > 0) parts.push(`${days}日`)
+  if (hrs > 0 || days > 0) parts.push(`${hrs}时`)
+  if (mins > 0 || hrs > 0 || days > 0) parts.push(`${mins}分`)
+  parts.push(`${secs}秒`)
+
+  return parts.join(' ')
 }
 
 // 掩码脱敏 API Key / Token 显示
@@ -110,7 +111,35 @@ const maskKey = (key?: string) => {
   return `${key.slice(0, 6)}••••••••${key.slice(-4)}`
 }
 
-const formRef = ref()
+// 将 details 列表按 providerGroup 分组 (如 Gemini 算力组、Claude 算力组)
+const groupQuotaDetails = (details?: QuotaDetailItem[]) => {
+  if (!details || details.length === 0) return {}
+  const groups: Record<string, QuotaDetailItem[]> = {}
+  for (const item of details) {
+    const rawGroup = item.providerGroup || '算力池'
+    if (!groups[rawGroup]) {
+      groups[rawGroup] = []
+    }
+    groups[rawGroup].push(item)
+  }
+  return groups
+}
+
+// 按照提供商获取 Badge 样式分类
+const getProviderBadgeStyle = (provider: string) => {
+  switch (provider) {
+    case 'google-antigravity':
+      return 'bg-indigo-600 text-white'
+    case 'openai-codex':
+      return 'bg-emerald-600 text-white'
+    case 'google-aistudio':
+      return 'bg-sky-600 text-white'
+    case 'openai-compatible':
+      return 'bg-teal-600 text-white'
+    default:
+      return 'bg-slate-700 text-white'
+  }
+}
 
 const openAddModal = () => {
   isEditing.value = false
@@ -120,12 +149,11 @@ const openAddModal = () => {
   formData.value = {
     name: '',
     type: 'token-plane',
-    provider: '' as any,
-    baseUrl: '',
+    provider: 'google-antigravity',
+    baseUrl: 'https://daily-cloudcode-pa.googleapis.com',
     apiKey: '',
     refreshToken: '',
     accessToken: '',
-    model: '',
     email: ''
   }
   isModalVisible.value = true
@@ -145,7 +173,6 @@ const openEditModal = (item: ApiKeyConfig) => {
     apiKey: item.apiKey || '',
     refreshToken: item.refreshToken || '',
     accessToken: item.accessToken || '',
-    model: item.model || '',
     email: item.email || ''
   }
   isModalVisible.value = true
@@ -164,10 +191,10 @@ const handleSave = async () => {
     formData.value.type = modalTab.value
 
     if (isEditing.value && editingId.value) {
-      await keyQuotaStore.updateKey(editingId.value, formData.value as any)
+      await quotaStore.updateKey(editingId.value, formData.value as any)
       message.success('更新 API 资源成功')
     } else {
-      await keyQuotaStore.addKey(formData.value as any)
+      await quotaStore.addKey(formData.value as any)
       message.success('添加 API 资源成功')
     }
     isModalVisible.value = false
@@ -179,39 +206,44 @@ const handleSave = async () => {
 }
 
 const handleDelete = async (id: string) => {
-  await keyQuotaStore.deleteKey(id)
+  await quotaStore.deleteKey(id)
   message.success('删除成功')
 }
 
 onMounted(() => {
-  keyQuotaStore.fetchKeys()
-  keyQuotaStore.startCountdown()
+  quotaStore.fetchKeys()
+  quotaStore.startCountdown()
 })
 </script>
 
 <template>
   <div class="space-y-6">
-    <!-- 副标题栏与顶栏操作 -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-200/80 dark:border-zinc-800/80">
-      <div class="flex items-center gap-2">
-        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60">
-          <Key class="w-3.5 h-3.5 text-indigo-500" />
-          通用 API 与 Token 算力中枢
-        </span>
-        <span class="text-xs text-slate-500 dark:text-slate-400">
-          统筹管理 Token Plane (Google Antigravity & OpenAI Codex 托管账号) 与 API Key (通用 API 密钥) 额度
-        </span>
+    <!-- 顶栏与控制台 Banner -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-zinc-800">
+      <div class="space-y-1">
+        <div class="flex items-center gap-2.5">
+          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
+            <Key class="w-3.5 h-3.5 text-indigo-500" />
+            API 密钥与算力控制台
+          </span>
+          <span class="text-xs font-medium text-slate-500 dark:text-slate-400 hidden md:inline">
+            全盘管控 Token Plane 托管账号与 API Key 算力配额
+          </span>
+        </div>
+        <p class="text-xs text-slate-500 dark:text-slate-400 md:hidden">
+          全盘管控 Token Plane 托管账号与 API Key 算力配额
+        </p>
       </div>
 
       <div class="flex items-center gap-3">
         <a-button
           type="default"
-          :loading="keyQuotaStore.checkingAll"
-          @click="keyQuotaStore.checkAllKeys"
-          class="inline-flex items-center gap-1.5 font-medium rounded-lg text-xs"
+          :loading="quotaStore.checkingAll"
+          @click="quotaStore.checkAllKeys"
+          class="inline-flex items-center gap-1.5 font-medium rounded-xl text-xs !h-9"
         >
           <template #icon>
-            <RefreshCw class="w-3.5 h-3.5" />
+            <RefreshCw class="w-3.5 h-3.5 text-indigo-500" />
           </template>
           一键探测/刷新所有额度
         </a-button>
@@ -219,7 +251,7 @@ onMounted(() => {
         <a-button
           type="primary"
           @click="openAddModal"
-          class="inline-flex items-center gap-1.5 font-medium rounded-lg text-xs !bg-indigo-600 hover:!bg-indigo-500"
+          class="inline-flex items-center gap-1.5 font-semibold rounded-xl text-xs !h-9 !bg-indigo-600 hover:!bg-indigo-500"
         >
           <template #icon>
             <Plus class="w-4 h-4" />
@@ -230,177 +262,251 @@ onMounted(() => {
     </div>
 
     <!-- 加载中状态 -->
-    <div v-if="keyQuotaStore.loading" class="py-16 text-center bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200/80 dark:border-zinc-800/80 shadow-sm">
+    <div v-if="quotaStore.loading" class="py-20 text-center bg-white dark:bg-zinc-900 rounded-3xl border border-slate-200 dark:border-zinc-800">
       <a-spin tip="正在加载 API 资源与配额数据..." />
     </div>
 
     <!-- 暂无数据空状态 -->
-    <div v-else-if="keyQuotaStore.keys.length === 0" class="py-16 bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200/80 dark:border-zinc-800/80 shadow-sm p-8 text-center">
+    <div v-else-if="quotaStore.keys.length === 0" class="py-20 bg-white dark:bg-zinc-900 rounded-3xl border border-slate-200 dark:border-zinc-800 p-8 text-center">
       <a-empty description="暂无配置记录">
-        <a-button type="primary" @click="openAddModal" class="!mt-3 !bg-indigo-600 hover:!bg-indigo-500">
+        <a-button type="primary" @click="openAddModal" class="!mt-3 !bg-indigo-600 hover:!bg-indigo-500 !rounded-xl">
           新建 API 资源
         </a-button>
       </a-empty>
     </div>
 
-    <!-- 资源列表 Grid -->
-    <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <a-card
-        v-for="item in keyQuotaStore.keys"
+    <!-- 扁平卡片 Grid (无阴影 + 首页半圆仪表盘 dashboard 样式 + planType + 具体重置时间) -->
+    <div v-else class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div
+        v-for="item in quotaStore.keys"
         :key="item.id"
-        variant="borderless"
-        class="rounded-2xl border border-slate-200/90 dark:border-zinc-800/90 bg-white dark:bg-zinc-900 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden"
+        class="rounded-3xl border border-slate-200/80 dark:border-zinc-800/80 bg-white/95 dark:bg-zinc-900/95 shadow-sm hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 backdrop-blur-md overflow-hidden flex flex-col justify-between p-6 space-y-5"
       >
         <!-- A. Token Plane 类型卡片渲染 (Antigravity & Codex) -->
         <template v-if="item.type === 'token-plane'">
-          <div class="flex items-start justify-between">
-            <div class="flex items-center gap-3">
-              <div
-                :class="[
-                  'w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-xs',
-                  item.provider === 'google-antigravity' ? 'bg-indigo-600' : 'bg-emerald-600'
-                ]"
-              >
-                {{ item.provider === 'google-antigravity' ? 'AG' : 'CX' }}
+          <div class="space-y-4">
+            <!-- 卡片头部: Provider Icon + 名称 + 邮箱 + 顶栏 Badges -->
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex items-center gap-3.5">
+                <div
+                  :class="[
+                    'w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm text-white shadow-lg shrink-0',
+                    item.provider === 'google-antigravity'
+                      ? 'bg-gradient-to-br from-indigo-500 via-indigo-600 to-purple-600 shadow-indigo-500/25'
+                      : 'bg-gradient-to-br from-emerald-500 via-teal-600 to-cyan-600 shadow-emerald-500/25'
+                  ]"
+                >
+                  {{ item.provider === 'google-antigravity' ? 'AG' : 'CX' }}
+                </div>
+                <div class="min-w-0">
+                  <h3 class="font-extrabold text-slate-900 dark:text-white flex items-center gap-2 text-base tracking-tight truncate">
+                    {{ item.name }}
+                  </h3>
+                  <p v-if="item.email" class="text-xs font-mono text-slate-400 dark:text-slate-500 mt-0.5 flex items-center gap-1.5 truncate">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block shrink-0"></span>
+                    {{ item.email }}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 class="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                  {{ item.name }}
-                </h3>
-                <p v-if="item.email" class="text-xs font-mono text-slate-400 mt-0.5">
-                  {{ item.email }}
-                </p>
-              </div>
-            </div>
 
-            <a-tag color="purple" class="!rounded-md font-medium !px-2">
-              <span class="flex items-center gap-1 text-xs">
-                <Zap class="w-3.5 h-3.5 text-indigo-400" />
-                Token Plane
-              </span>
-            </a-tag>
-          </div>
-
-          <!-- 配额进度条 (真实拉取到数据时展示) -->
-          <div v-if="item.tokenPlaneQuota" class="mt-4 p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-100 dark:border-zinc-800 space-y-2">
-            <div class="flex justify-between items-center text-xs">
-              <span v-if="formatCountdown(item.tokenPlaneQuota.secondsRemaining)" class="text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                <Clock class="w-3.5 h-3.5 text-indigo-500" />
-                重置倒计时:
-                <span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold">
-                  {{ formatCountdown(item.tokenPlaneQuota.secondsRemaining) }}
+              <!-- 右上角 Badge 组 -->
+              <div class="flex items-center gap-2 shrink-0">
+                <span
+                  v-if="item.tokenPlaneQuota?.planType || item.planType"
+                  :class="[
+                    'px-3 py-1 rounded-full text-xs font-black tracking-wide border uppercase shadow-2xs',
+                    (item.tokenPlaneQuota?.planType || item.planType)?.toLowerCase().includes('ultra')
+                      ? 'bg-gradient-to-r from-amber-500/10 to-orange-500/10 text-amber-600 dark:text-amber-400 border-amber-300/60 dark:border-amber-700/60'
+                      : (item.tokenPlaneQuota?.planType || item.planType)?.toLowerCase().includes('pro')
+                      ? 'bg-gradient-to-r from-indigo-500/10 to-purple-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-300/60 dark:border-indigo-700/60'
+                      : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-zinc-700'
+                  ]"
+                >
+                  {{ item.tokenPlaneQuota?.planType || item.planType }}
                 </span>
-              </span>
-              <span class="font-mono font-bold text-slate-800 dark:text-slate-200 ml-auto">
-                剩余 {{ item.tokenPlaneQuota.remainingPercentage }}%
-              </span>
-            </div>
-            <a-progress
-              :percent="item.tokenPlaneQuota.remainingPercentage"
-              :show-info="false"
-              :stroke-color="item.provider === 'google-antigravity' ? '#6366f1' : '#10b981'"
-              size="small"
-            />
-          </div>
 
-          <!-- 未同步 / 探针未测试提示 -->
-          <div v-else class="mt-4 p-3 rounded-xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-900/60 text-xs text-amber-700 dark:text-amber-400 flex items-center gap-2">
-            <AlertCircle class="w-4 h-4 shrink-0" />
-            <span>尚未获取上游配额数据</span>
-          </div>
-
-          <!-- 绑定模型细分 -->
-          <div v-if="item.tokenPlaneQuota?.models && item.tokenPlaneQuota.models.length > 0" class="mt-3 space-y-1.5 text-xs">
-            <div
-              v-for="m in item.tokenPlaneQuota.models"
-              :key="m.name"
-              class="flex items-center justify-between py-1 px-2.5 rounded-lg bg-slate-100/70 dark:bg-zinc-800/70 text-slate-600 dark:text-slate-300"
-            >
-              <span>{{ m.name }}</span>
-              <span class="font-mono text-slate-400">{{ m.used }} 已用</span>
-            </div>
-          </div>
-        </template>
-
-        <!-- B. API Key 类型卡片渲染 (OpenAI / DeepSeek / Google / Anthropic) -->
-        <template v-else>
-          <div class="flex items-start justify-between">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-100 dark:border-emerald-900 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-                <Key class="w-5 h-5" />
+                <span class="px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60 flex items-center gap-1.5">
+                  <Zap class="w-3.5 h-3.5 text-indigo-500" />
+                  Token Plane
+                </span>
               </div>
-              <div>
-                <h3 class="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                  {{ item.name }}
-                </h3>
-                <div v-if="item.apiKey" class="flex items-center gap-2 mt-0.5">
-                  <span class="text-xs font-mono text-slate-400 flex items-center gap-1">
-                    <Lock class="w-3 h-3" />
-                    {{ maskKey(item.apiKey) }}
+            </div>
+
+            <!-- 配额仪表盘区 (半圆仪表盘 + 极简扁平重置时间) -->
+            <div v-if="item.tokenPlaneQuota" class="p-4 rounded-2xl bg-slate-50/80 dark:bg-zinc-800/40 border border-slate-100 dark:border-zinc-800/80 flex flex-col sm:flex-row items-center gap-5">
+              <!-- 半圆仪表盘 -->
+              <div class="shrink-0 relative w-[110px] h-[110px] flex items-center justify-center">
+                <a-progress
+                  type="dashboard"
+                  :percent="item.tokenPlaneQuota.remainingPercentage"
+                  :size="110"
+                  :stroke-width="9"
+                  :stroke-color="item.provider === 'google-antigravity' ? { '0%': '#818cf8', '100%': '#4f46e5' } : { '0%': '#34d399', '100%': '#059669' }"
+                  :show-info="false"
+                />
+                <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span class="text-[10px] text-slate-400 font-medium">总剩余额度</span>
+                  <span class="text-xl font-black font-mono tracking-tight text-slate-900 dark:text-white">
+                    {{ item.tokenPlaneQuota.remainingPercentage }}%
+                  </span>
+                </div>
+              </div>
+
+              <!-- 右侧详情: 重置倒计时与重置时刻 (极简扁平条，无白底阴影卡片) -->
+              <div class="flex-1 space-y-2 w-full min-w-0">
+                <div v-if="formatCountdown(item.tokenPlaneQuota.secondsRemaining)" class="flex items-center justify-between text-xs py-2 px-3 rounded-xl bg-slate-100/80 dark:bg-zinc-800/60">
+                  <span class="text-slate-500 dark:text-slate-400 flex items-center gap-1.5 font-medium">
+                    <Clock class="w-3.5 h-3.5 text-indigo-500" />
+                    重置倒计时
+                  </span>
+                  <span class="font-mono text-indigo-600 dark:text-indigo-400 font-extrabold">
+                    {{ formatCountdown(item.tokenPlaneQuota.secondsRemaining) }}
+                  </span>
+                </div>
+
+                <div v-if="item.tokenPlaneQuota.nextResetTime" class="flex items-center justify-between text-xs py-2 px-3 rounded-xl bg-slate-100/80 dark:bg-zinc-800/60">
+                  <span class="text-slate-500 dark:text-slate-400 flex items-center gap-1.5 font-medium">
+                    <Calendar class="w-3.5 h-3.5 text-sky-500" />
+                    重置时刻
+                  </span>
+                  <span class="font-mono font-bold text-slate-700 dark:text-slate-300">
+                    {{ item.tokenPlaneQuota.nextResetTime }}
                   </span>
                 </div>
               </div>
             </div>
 
-            <a-tag :color="item.status === 'active' ? 'success' : item.status === 'error' ? 'error' : 'default'" class="!rounded-md font-medium !px-2">
-              <span class="flex items-center gap-1 text-xs">
-                <CheckCircle2 v-if="item.status === 'active'" class="w-3.5 h-3.5 text-emerald-500" />
-                <AlertCircle v-else-if="item.status === 'error'" class="w-3.5 h-3.5 text-rose-500" />
-                {{ item.status === 'active' ? '探针正常' : item.status === 'error' ? '探针异常' : '未检测' }}
-              </span>
-            </a-tag>
-          </div>
+            <!-- 算力池配额明细分组网格 (无顶部分割线纯净排版) -->
+            <div v-if="item.tokenPlaneQuota?.details?.length" class="mt-3 space-y-3">
+              <div
+                v-for="(groupItems, groupName) in groupQuotaDetails(item.tokenPlaneQuota.details)"
+                :key="groupName"
+                class="space-y-1.5"
+              >
+                <!-- 分组标题 (无背景) -->
+                <div class="flex items-center gap-1.5 text-xs font-extrabold text-slate-700 dark:text-slate-300 tracking-tight">
+                  <Sparkles v-if="String(groupName).toLowerCase().includes('gemini')" class="w-3.5 h-3.5 text-indigo-500" />
+                  <Zap v-else-if="String(groupName).toLowerCase().includes('claude')" class="w-3.5 h-3.5 text-amber-500" />
+                  <Globe v-else class="w-3.5 h-3.5 text-sky-500" />
+                  {{ groupName }}
+                </div>
 
-          <!-- 详细信息：模型与 Endpoint -->
-          <div class="mt-4 p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-100 dark:border-zinc-800 space-y-2 text-xs">
-            <div v-if="item.model" class="flex items-center justify-between">
-              <span class="text-slate-400 flex items-center gap-1">
-                <Cpu class="w-3.5 h-3.5 text-indigo-500" />
-                绑定模型
-              </span>
-              <span class="font-mono font-semibold text-slate-800 dark:text-slate-200 px-2 py-0.5 rounded bg-slate-200/60 dark:bg-zinc-700/60">
-                {{ item.model }}
-              </span>
-            </div>
+                <!-- 该分组下的算力桶列表 (纯净无背景 + 极简进度条) -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 py-0.5">
+                  <div
+                    v-for="detail in groupItems"
+                    :key="detail.name"
+                    class="flex items-center justify-between text-xs gap-2 py-1 px-1 rounded-md"
+                  >
+                    <div class="min-w-0 flex-1 space-y-1">
+                      <div class="flex items-center justify-between gap-1">
+                        <span class="font-bold text-slate-800 dark:text-slate-200 truncate text-[11px]">
+                          {{ detail.name }}
+                        </span>
+                        <span class="font-black font-mono text-indigo-600 dark:text-indigo-400 text-[11px] shrink-0">
+                          {{ detail.remainingPercentage }}%
+                        </span>
+                      </div>
+                      <!-- 极简 4px 动态进度条 -->
+                      <div class="w-full bg-slate-200/60 dark:bg-zinc-800 h-1 rounded-full overflow-hidden">
+                        <div
+                          class="h-full rounded-full transition-all duration-500"
+                          :class="detail.remainingPercentage > 50 ? 'bg-emerald-500' : detail.remainingPercentage > 15 ? 'bg-amber-500' : 'bg-rose-500'"
+                          :style="{ width: `${detail.remainingPercentage}%` }"
+                        ></div>
+                      </div>
+                    </div>
 
-            <div v-if="item.baseUrl" class="flex items-center justify-between">
-              <span class="text-slate-400 flex items-center gap-1">
-                <Globe class="w-3.5 h-3.5 text-sky-500" />
-                Endpoint
-              </span>
-              <span class="font-mono text-slate-600 dark:text-slate-300 truncate max-w-[220px]" :title="item.baseUrl">
-                {{ item.baseUrl }}
-              </span>
-            </div>
-          </div>
-
-          <!-- 探针指标：仅在存在探针响应时展示 -->
-          <div v-if="item.quotaInfo" class="mt-4 pt-3 border-t border-slate-100 dark:border-zinc-800 grid grid-cols-3 gap-2 text-center">
-            <div>
-              <span class="text-[11px] text-slate-400">剩余请求 (RPM)</span>
-              <div class="text-base font-bold font-mono text-indigo-600 dark:text-indigo-400 mt-0.5">
-                {{ item.quotaInfo.remainingRequests !== undefined ? item.quotaInfo.remainingRequests : '' }}
+                    <span v-if="detail.secondsRemaining > 0" class="text-[10px] text-slate-400 font-mono shrink-0 pl-1">
+                      {{ formatCountdown(detail.secondsRemaining) }}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
-            <div>
-              <span class="text-[11px] text-slate-400">剩余 Tokens (TPM)</span>
-              <div class="text-base font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-0.5">
-                {{ item.quotaInfo.remainingTokens !== undefined ? `${(item.quotaInfo.remainingTokens / 1000).toFixed(0)}K` : '' }}
+
+            <!-- 未同步 / 探针未测试提示 -->
+            <div v-else-if="!item.tokenPlaneQuota" class="p-4 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-900/60 text-xs text-amber-700 dark:text-amber-400 flex items-center gap-2">
+              <AlertCircle class="w-4 h-4 shrink-0" />
+              <span>尚未获取上游配额数据，请点击下方【刷新配额】按钮进行测算</span>
+            </div>
+          </div>
+        </template>
+
+        <!-- B. API Key 类型卡片渲染 (OpenAI / DeepSeek / Google / Generic) -->
+        <template v-else>
+          <div class="space-y-4">
+            <!-- 卡片头部: Key Icon + 名称 + 校验 Tag -->
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex items-center gap-3.5">
+                <div class="w-11 h-11 rounded-2xl bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-100 dark:border-emerald-900 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                  <Key class="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 class="font-bold text-slate-900 dark:text-white flex items-center gap-2 text-base">
+                    {{ item.name }}
+                  </h3>
+                  <div v-if="item.apiKey" class="flex items-center gap-2 mt-0.5">
+                    <span class="text-xs font-mono text-slate-400 flex items-center gap-1">
+                      <Lock class="w-3 h-3" />
+                      {{ maskKey(item.apiKey) }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <a-tag :color="item.status === 'active' ? 'success' : item.status === 'error' ? 'error' : 'default'" class="!rounded-full font-semibold !px-3 !py-0.5 shrink-0">
+                <span class="flex items-center gap-1.5 text-xs">
+                  <CheckCircle2 v-if="item.status === 'active'" class="w-3.5 h-3.5 text-emerald-500" />
+                  <AlertCircle v-else-if="item.status === 'error'" class="w-3.5 h-3.5 text-rose-500" />
+                  {{ item.status === 'active' ? '探针正常' : item.status === 'error' ? '探针异常' : '未检测' }}
+                </span>
+              </a-tag>
+            </div>
+
+            <!-- 详细配置: Endpoint -->
+            <div class="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-zinc-800/50 border border-slate-100 dark:border-zinc-800 space-y-2 text-xs">
+              <div v-if="item.baseUrl" class="flex items-center justify-between">
+                <span class="text-slate-400 flex items-center gap-1.5 font-medium">
+                  <Globe class="w-3.5 h-3.5 text-sky-500" />
+                  Endpoint
+                </span>
+                <span class="font-mono text-slate-600 dark:text-slate-300 truncate max-w-[220px]" :title="item.baseUrl">
+                  {{ item.baseUrl }}
+                </span>
               </div>
             </div>
-            <div>
-              <span class="text-[11px] text-slate-400">探针延迟</span>
-              <div class="text-base font-bold font-mono text-sky-600 dark:text-sky-400 mt-0.5">
-                {{ item.quotaInfo.latencyMs !== undefined ? `${item.quotaInfo.latencyMs} ms` : '' }}
+
+            <!-- 探针性能与 Rate-Limit 响应面板 -->
+            <div v-if="item.quotaInfo" class="pt-2 grid grid-cols-3 gap-2 text-center">
+              <div class="p-2 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-100/60 dark:border-indigo-900/60">
+                <span class="text-[10px] font-semibold text-indigo-400 uppercase tracking-wider">剩余 RPM</span>
+                <div class="text-sm font-extrabold font-mono text-indigo-600 dark:text-indigo-400 mt-0.5">
+                  {{ item.quotaInfo.remainingRequests !== undefined ? item.quotaInfo.remainingRequests : '---' }}
+                </div>
+              </div>
+
+              <div class="p-2 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/30 border border-emerald-100/60 dark:border-emerald-900/60">
+                <span class="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider">剩余 TPM</span>
+                <div class="text-sm font-extrabold font-mono text-emerald-600 dark:text-emerald-400 mt-0.5">
+                  {{ item.quotaInfo.remainingTokens !== undefined ? `${(item.quotaInfo.remainingTokens / 1000).toFixed(0)}K` : '---' }}
+                </div>
+              </div>
+
+              <div class="p-2 rounded-xl bg-sky-50/50 dark:bg-sky-950/30 border border-sky-100/60 dark:border-sky-900/60">
+                <span class="text-[10px] font-semibold text-sky-400 uppercase tracking-wider">探针延迟</span>
+                <div class="text-sm font-extrabold font-mono text-sky-600 dark:text-sky-400 mt-0.5">
+                  {{ item.quotaInfo.latencyMs !== undefined ? `${item.quotaInfo.latencyMs}ms` : '---' }}
+                </div>
               </div>
             </div>
           </div>
         </template>
 
-        <!-- 卡片底部操作栏 -->
-        <div class="mt-4 pt-3 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between">
+        <!-- 卡片底栏: 更新时间与操作按钮组 -->
+        <div class="mt-5 pt-3.5 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between">
           <span v-if="item.lastTestedAt" class="text-[11px] text-slate-400 font-mono">
-            上次更新: {{ new Date(item.lastTestedAt).toLocaleTimeString() }}
+            更新时间: {{ new Date(item.lastTestedAt).toLocaleTimeString() }}
           </span>
           <span v-else></span>
 
@@ -408,12 +514,12 @@ onMounted(() => {
             <a-button
               type="default"
               size="small"
-              :loading="keyQuotaStore.checkingId === item.id"
-              @click="keyQuotaStore.checkSingleKey(item.id)"
-              class="!text-xs !rounded-lg"
+              :loading="quotaStore.isKeyChecking(item.id)"
+              @click="quotaStore.checkSingleKey(item.id)"
+              class="!text-xs !rounded-xl !h-7 !px-3 font-medium"
             >
               <template #icon>
-                <RefreshCw class="w-3 h-3" />
+                <RefreshCw class="w-3 h-3 text-indigo-500" />
               </template>
               {{ item.type === 'token-plane' ? '刷新配额' : '检测探针' }}
             </a-button>
@@ -422,10 +528,11 @@ onMounted(() => {
               type="text"
               size="small"
               @click="openEditModal(item)"
-              class="!text-xs !rounded-lg text-slate-600 dark:text-slate-300"
+              class="!text-xs !rounded-xl !h-7 !w-7 !p-0 text-slate-500 hover:text-indigo-600 dark:text-slate-400"
+              title="编辑配置"
             >
               <template #icon>
-                <Edit3 class="w-3 h-3" />
+                <Edit3 class="w-3.5 h-3.5" />
               </template>
             </a-button>
 
@@ -439,16 +546,17 @@ onMounted(() => {
                 type="text"
                 danger
                 size="small"
-                class="!text-xs !rounded-lg"
+                class="!text-xs !rounded-xl !h-7 !w-7 !p-0"
+                title="删除配置"
               >
                 <template #icon>
-                  <Trash2 class="w-3 h-3" />
+                  <Trash2 class="w-3.5 h-3.5" />
                 </template>
               </a-button>
             </a-popconfirm>
           </div>
         </div>
-      </a-card>
+      </div>
     </div>
 
     <!-- 添加 / 编辑 API 资源 Modal 弹窗 -->
@@ -459,8 +567,8 @@ onMounted(() => {
       @ok="handleSave"
       :ok-text="isEditing ? '保存修改' : '确认提交'"
       cancel-text="取消"
-      class="rounded-2xl"
-      width="520px"
+      class="rounded-3xl"
+      width="540px"
     >
       <a-form
         ref="formRef"
@@ -480,7 +588,7 @@ onMounted(() => {
           </a-radio-group>
         </a-form-item>
 
-        <!-- 服务提供商 (Provider) 下拉选择框（选择后自动触发填充） -->
+        <!-- 服务提供商 (Provider) 下拉选择框 -->
         <a-form-item label="服务提供商 (Provider)" name="provider" required>
           <a-select
             v-model:value="formData.provider"
@@ -499,34 +607,28 @@ onMounted(() => {
           />
         </a-form-item>
 
-        <!-- 模型名称 -->
-        <a-form-item label="模型名称 (Model)" name="model" required>
-          <a-input
-            v-model:value="formData.model"
-            placeholder="例如: gpt-4o, claude-3-7-sonnet, gemini-2.5-flash"
-          />
-        </a-form-item>
+
 
         <!-- Token Plane 专属: 邮箱、Refresh Token 与 Access Token -->
         <template v-if="modalTab === 'token-plane'">
           <a-form-item label="账号邮箱 (Email)" name="email">
             <a-input
               v-model:value="formData.email"
-              placeholder="请输入关联账号邮箱"
+              placeholder="请输入关联账号邮箱 (支持授权自动填充)"
             />
           </a-form-item>
 
           <a-form-item label="Refresh Token (长效刷新令牌)" name="refreshToken" required>
             <a-input-password
               v-model:value="formData.refreshToken"
-              placeholder="请输入长效 Refresh Token"
+              placeholder="请输入长效 Token 或点击上方一键授权/粘贴 Code 解析"
             />
           </a-form-item>
 
           <a-form-item label="Access Token (短效访问令牌)" name="accessToken">
             <a-input-password
               v-model:value="formData.accessToken"
-              placeholder="请输入短效 Access Token (选填)"
+              placeholder="请输入短效 Access Token (选填，支持自动获取)"
             />
           </a-form-item>
         </template>

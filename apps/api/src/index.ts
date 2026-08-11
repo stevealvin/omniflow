@@ -5,8 +5,6 @@ import { loggerMiddleware } from './middlewares/logger.js'
 import { quotaRouter } from './routes/quota.js'
 import { watchRouter } from './routes/watch.js'
 import { webhooksRouter } from './routes/webhooks.js'
-import { keyQuotaRouter } from './routes/key-quota.js'
-import { accountsRouter } from './routes/accounts.js'
 
 const app = new Hono()
 
@@ -29,8 +27,6 @@ const api = new Hono()
 api.route('/', quotaRouter)
 api.route('/', watchRouter)
 api.route('/', webhooksRouter)
-api.route('/', keyQuotaRouter)
-api.route('/', accountsRouter)
 
 app.route('/api', api)
 app.route('/api/v1', api)

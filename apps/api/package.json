@@ -12,6 +12,7 @@
   "dependencies": {
     "@hono/node-server": "^2.1.0",
     "@supabase/supabase-js": "^2.112.2",
+    "axios": "^1.19.0",
     "hono": "^4.13.1"
   },
   "devDependencies": {

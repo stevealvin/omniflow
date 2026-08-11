@@ -31,7 +31,7 @@ const toggleSidebar = () => {
 // 侧边栏导航菜单项
 const menuItems = [
   { key: '/', title: '仪表数据大盘', icon: Zap },
-  { key: '/keys', title: '通用 API 额度管理', icon: Key },
+  { key: '/keys', title: 'API 密钥与算力控制台', icon: Key },
   { key: '/watch-simulator', title: 'Redmi Watch 6 模拟器', icon: Watch },
   { key: '/alerts', title: '星环通知与路由', icon: Bell },
   { key: '/app-hub', title: '扩展应用中心', icon: LayoutGrid }
@@ -84,7 +84,7 @@ const navigateTo = (path: string) => {
         <a-button
           type="text"
           :loading="quotaStore.loading"
-          @click="quotaStore.fetchQuota"
+          @click="quotaStore.fetchKeys"
           class="!flex items-center justify-center !w-9 !h-9 !rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-zinc-800"
           title="刷新数据"
         >

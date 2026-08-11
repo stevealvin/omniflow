@@ -1,85 +1,73 @@
-import type { ApiKeyConfig, QuotaFetchResult, QuotaModelItem, TokenPlaneQuota } from '../../types/index.js'
+import type { ApiKeyConfig, QuotaFetchResult, TokenPlaneQuota, QuotaDetailItem } from '../../types/index.js'
 import type { IQuotaProvider } from './base.provider.js'
+import { httpClient } from '../../utils/http.js'
 
-// 默认 Google Antigravity OAuth 客户端凭据（已经过 Base64 解码保护，亦可通过环境变量覆写）
-const DEFAULT_CLIENT_ID = Buffer.from('MTA3MTAwNjA2MDU5MS10bWhzc2luMmgyMWxjcmUyMzV2dG9sb2poNGc0MDNlcC5hcHBzLmdvb2dsZXVzZXJjb250ZW50LmNvbQ==', 'base64').toString('utf-8')
-const DEFAULT_CLIENT_SECRET = Buffer.from('R09DU1BYLUs1OEZXUjQ4NkxkTEoxbUxCOHNYQzR6cURBZg==', 'base64').toString('utf-8')
+const DEFAULT_CLIENT_ID = '1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com'
+const DEFAULT_CLIENT_SECRET = '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'
+const DEFAULT_BASE_URL = 'https://daily-cloudcode-pa.googleapis.com'
+const USER_AGENT = 'antigravity/2.6.0 windows/amd64'
 
-const BASE_URLS = [
-  'https://daily-cloudcode-pa.googleapis.com',
-  'https://cloudcode-pa.googleapis.com'
-]
+const formatDateTime = (date: Date) => date.toISOString().replace('T', ' ').substring(0, 19)
 
+/**
+ * Google Antigravity 托管账号算力配额探针 Provider 策略
+ */
 export class AntigravityProvider implements IQuotaProvider {
   readonly providerId = 'google-antigravity'
 
   private async refreshAccessToken(refreshToken: string): Promise<string | null> {
-    try {
-      const clientId = process.env.ANTIGRAVITY_CLIENT_ID || DEFAULT_CLIENT_ID
-      const clientSecret = process.env.ANTIGRAVITY_CLIENT_SECRET || DEFAULT_CLIENT_SECRET
+    const cid = process.env.ANTIGRAVITY_CLIENT_ID || DEFAULT_CLIENT_ID
+    const sec = process.env.ANTIGRAVITY_CLIENT_SECRET || DEFAULT_CLIENT_SECRET
 
-      const res = await fetch('https://oauth2.googleapis.com/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          client_id: clientId,
-          client_secret: clientSecret,
+    for (const clientSecret of [sec, '']) {
+      try {
+        const payload: Record<string, string> = {
+          client_id: cid,
           grant_type: 'refresh_token',
           refresh_token: refreshToken.trim()
+        }
+        if (clientSecret) payload.client_secret = clientSecret
+
+        const res = await httpClient.post('https://oauth2.googleapis.com/token', new URLSearchParams(payload).toString(), {
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
         })
-      })
-
-      if (!res.ok) {
-        console.error('[AntigravityProvider] OAuth refresh failed with status:', res.status)
-        return null
-      }
-
-      const data: any = await res.json()
-      return data?.access_token || null
-    } catch (err) {
-      console.error('[AntigravityProvider] OAuth refresh error:', err)
-      return null
+        if (res.data?.access_token) return res.data.access_token
+      } catch {}
     }
+    return null
   }
 
   /**
-   * 对齐 Cockpit-Tools 实现：调用 v1internal:loadCodeAssist 获取关联项目与订阅 Tier
+   * 发起 v1internal:loadCodeAssist 探测 GCP 项目与订阅套餐 (直接获取 paidTier.name)
    */
-  private async loadCodeAssist(baseUrl: string, accessToken: string): Promise<{ projectId?: string; tier?: string }> {
+  private async loadCodeAssist(baseUrl: string, accessToken: string): Promise<{ projectId?: string; planType?: string }> {
     try {
-      const res = await fetch(`${baseUrl}/v1internal:loadCodeAssist`, {
-        method: 'POST',
+      const res = await httpClient.post(`${baseUrl}/v1internal:loadCodeAssist`, {
+        metadata: {
+          ideName: 'antigravity',
+          ideType: 'ANTIGRAVITY',
+          ideVersion: '2.6.0',
+          pluginVersion: '1.0.0',
+          platform: 'WINDOWS_AMD64',
+          updateChannel: 'stable',
+          pluginType: 'GEMINI'
+        },
+        mode: 'FULL_ELIGIBILITY_CHECK'
+      }, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
-          'User-Agent': 'antigravity/1.20.5 windows/amd64 google-api-nodejs-client/10.3.0',
-          'x-goog-api-client': 'gl-node/22.21.1',
-          'Accept': '*/*'
-        },
-        body: JSON.stringify({
-          metadata: {
-            ideName: 'antigravity',
-            ideType: 'ANTIGRAVITY',
-            ideVersion: '1.20.5',
-            pluginVersion: '1.0.0',
-            platform: 'WINDOWS_AMD64',
-            updateChannel: 'stable',
-            pluginType: 'GEMINI'
-          },
-          mode: 'FULL_ELIGIBILITY_CHECK'
-        })
+          'User-Agent': USER_AGENT,
+          'x-goog-api-client': 'gl-node/22.21.1'
+        }
       })
 
-      if (!res.ok) {
-        return {}
-      }
-
-      const data: any = await res.json()
+      const data = res.data
       const projectObj = data?.cloudaicompanionProject
-      const projectId = typeof projectObj === 'string' ? projectObj : projectObj?.id || undefined
-      const tier = data?.paidTier?.id || data?.currentTier?.id || data?.currentTier?.name || undefined
+      const projectId = typeof projectObj === 'string' ? projectObj : projectObj?.id
+      const planType = data?.paidTier?.name
 
-      return { projectId, tier }
+      return { projectId, planType }
     } catch {
       return {}
     }
@@ -87,122 +75,120 @@ export class AntigravityProvider implements IQuotaProvider {
 
   async fetchQuota(config: ApiKeyConfig): Promise<QuotaFetchResult> {
     const now = new Date().toISOString()
-    let validAccessToken: string | null = null
+    let token: string | null = null
 
-    // 1. 若配置了标准的 Refresh Token，优先自动向 Google OAuth 换取最新有效的临时 Access Token
+    // 1. 优先使用 Refresh Token 刷新最新的 Access Token
     if (config.refreshToken && config.refreshToken.trim()) {
-      validAccessToken = await this.refreshAccessToken(config.refreshToken)
+      token = await this.refreshAccessToken(config.refreshToken)
     }
 
-    // 2. 若 Refresh Token 换取失败或未提供，回退使用 Access Token / API Key
-    if (!validAccessToken) {
-      const rawAccess = config.accessToken || config.apiKey
-      validAccessToken = rawAccess ? rawAccess.trim() : null
+    // 2. 若 Refresh 失败或未填 Refresh Token，回退使用配置中的 Access Token 或 API Key
+    if (!token) {
+      token = config.accessToken || config.apiKey || null
     }
 
-    if (!validAccessToken) {
-      console.error('[AntigravityProvider] 缺失有效的 Access Token 或 Refresh Token')
-      return {
-        status: 'error',
-        lastTestedAt: now
-      }
+    if (!token) {
+      return { status: 'error', lastTestedAt: now }
     }
 
-    // 构建待测试的候选域名列表（包含配置自定义域名与 Cockpit-Tools 对齐的 Daily & Prod 双域名回退）
-    const candidateUrls: string[] = []
-    if (config.baseUrl) {
-      candidateUrls.push(config.baseUrl.replace(/\/+$/, ''))
-    }
-    for (const url of BASE_URLS) {
-      if (!candidateUrls.includes(url)) {
-        candidateUrls.push(url)
-      }
-    }
+    const baseUrl = config.baseUrl ? config.baseUrl.replace(/\/+$/, '') : DEFAULT_BASE_URL
 
-    for (const baseUrl of candidateUrls) {
-      try {
-        // 对齐 Cockpit-Tools：优先获取 loadCodeAssist 项目上下文
-        const { projectId, tier } = await this.loadCodeAssist(baseUrl, validAccessToken)
+    try {
+      // 请求 A: loadCodeAssist 获取关联 GCP 项目与真实订阅套餐 (直接获取 paidTier.name)
+      const { projectId, planType: detectedPlan } = await this.loadCodeAssist(baseUrl, token)
+      const planType = config.planType || detectedPlan || 'Google AI'
 
-        const targetUrl = `${baseUrl}/v1internal:fetchAvailableModels`
-        const payload = projectId ? { project: projectId } : {}
-
-        const res = await fetch(targetUrl, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${validAccessToken}`,
-            'Content-Type': 'application/json',
-            'User-Agent': 'antigravity/1.20.5 windows/amd64'
-          },
-          body: JSON.stringify(payload)
-        })
-
-        if (!res.ok) {
-          console.warn(`[AntigravityProvider] Endpoint ${baseUrl} returned status: ${res.status}, trying next candidate...`)
-          continue
+      // 请求 B: v1internal:fetchAvailableModels
+      const res = await httpClient.post(`${baseUrl}/v1internal:fetchAvailableModels`, projectId ? { project: projectId } : {}, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'User-Agent': USER_AGENT
         }
+      }).catch(err => {
+        if (err.response?.status === 401 && config.accessToken && config.accessToken.trim() && config.accessToken.trim() !== token) {
+          return httpClient.post(`${baseUrl}/v1internal:fetchAvailableModels`, projectId ? { project: projectId } : {}, {
+            headers: {
+              'Authorization': `Bearer ${config.accessToken.trim()}`,
+              'Content-Type': 'application/json',
+              'User-Agent': USER_AGENT
+            }
+          })
+        }
+        throw err
+      })
 
-        const data: any = await res.json()
-        const modelsMap = data?.models || {}
+      // 请求 C: v1internal:retrieveUserQuotaSummary (唯一获取 5h / Weekly 专属时间桶额度来源)
+      const summaryRes = await httpClient.post(`${baseUrl}/v1internal:retrieveUserQuotaSummary`, projectId ? { project: projectId } : {}, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'User-Agent': USER_AGENT
+        }
+      }).catch(() => null)
 
-        let totalUsed = 0
-        let count = 0
-        let resetTimeStr = ''
-        const modelsList: QuotaModelItem[] = []
+      const modelsMap = res.data?.models || {}
+      const defaultModelId = res.data?.defaultAgentModelId || 'gemini-3.6-flash-high'
 
-        for (const [key, val] of Object.entries<any>(modelsMap)) {
-          if (val?.quotaInfo) {
-            const remainingFraction = val.quotaInfo.remainingFraction ?? 1.0
-            const usedPct = Math.round((1 - remainingFraction) * 100)
-            totalUsed += usedPct
-            count++
+      const details: QuotaDetailItem[] = []
 
-            if (val.quotaInfo.resetTime && (!resetTimeStr || new Date(val.quotaInfo.resetTime) < new Date(resetTimeStr))) {
-              resetTimeStr = val.quotaInfo.resetTime
+      // 仅从 retrieveUserQuotaSummary 中解析 5h / Weekly 配额桶，直接提取 displayName 与 remainingFraction
+      const groups = summaryRes?.data?.groups || []
+      if (Array.isArray(groups) && groups.length > 0) {
+        for (const grp of groups) {
+          const buckets = grp.buckets || []
+          for (const bkt of buckets) {
+            const name = bkt.displayName
+            const fraction = bkt.remainingFraction
+            const remPct = Math.round(fraction * 100)
+            const resetTime = bkt.resetTime
+            const secRem = resetTime ? Math.max(0, Math.floor((new Date(resetTime).getTime() - Date.now()) / 1000)) : 0
+            const resetStr = resetTime ? formatDateTime(new Date(resetTime)) : '无需重置'
+
+            let groupName = grp.displayName
+            if (!groupName) {
+              if (name?.toLowerCase().includes('claude')) groupName = 'Claude 算力池'
+              else if (name?.toLowerCase().includes('gpt')) groupName = 'GPT-OSS 算力池'
+              else groupName = 'Gemini 算力池'
             }
 
-            modelsList.push({
-              name: val.displayName || key,
-              limit: '额度可用',
-              used: `${usedPct}%`
+            details.push({
+              name,
+              providerGroup: groupName,
+              remainingPercentage: remPct,
+              secondsRemaining: secRem,
+              nextResetTime: resetStr
             })
           }
         }
-
-        if (count === 0) {
-          continue
-        }
-
-        const usedPercentage = Math.round(totalUsed / count)
-        const remainingPercentage = Math.max(0, 100 - usedPercentage)
-        const secondsRemaining = resetTimeStr
-          ? Math.max(0, Math.floor((new Date(resetTimeStr).getTime() - Date.now()) / 1000))
-          : 18000
-
-        const tokenPlaneQuota: TokenPlaneQuota = {
-          usedPercentage,
-          remainingPercentage,
-          resetIntervalHours: 5,
-          secondsRemaining,
-          nextResetTime: resetTimeStr ? new Date(resetTimeStr).toLocaleTimeString('zh-CN') : '05:00:00',
-          planType: config.planType || tier || 'Pro / Priority',
-          models: modelsList.length > 0 ? modelsList : undefined,
-          rawQuotaData: data
-        }
-
-        return {
-          status: remainingPercentage < 15 ? 'error' : 'active',
-          tokenPlaneQuota,
-          lastTestedAt: now
-        }
-      } catch (err: any) {
-        console.warn(`[AntigravityProvider] Failed probing ${baseUrl}:`, err.message)
       }
-    }
 
-    return {
-      status: 'error',
-      lastTestedAt: now
+      // 获取主默认模型 (defaultAgentModelId) 额度作为全盘总体数据，直接关联 defaultModelId
+      const primaryModel = modelsMap[defaultModelId] || {}
+      const primaryFraction = primaryModel.quotaInfo?.remainingFraction ?? 1.0
+      const remainingPercentage = Math.round(primaryFraction * 100)
+      const primaryResetTime = primaryModel.quotaInfo?.resetTime
+      const secondsRemaining = primaryResetTime ? Math.max(0, Math.floor((new Date(primaryResetTime).getTime() - Date.now()) / 1000)) : 18000
+      const nextResetTime = primaryResetTime ? formatDateTime(new Date(primaryResetTime)) : formatDateTime(new Date(Date.now() + secondsRemaining * 1000))
+
+      const tokenPlaneQuota: TokenPlaneQuota = {
+        usedPercentage: Math.max(0, 100 - remainingPercentage),
+        remainingPercentage,
+        resetIntervalHours: 5,
+        secondsRemaining,
+        nextResetTime,
+        planType,
+        details,
+        rawQuotaData: {
+          models: res.data,
+          summary: summaryRes?.data || null
+        }
+      }
+
+      return { status: 'active', tokenPlaneQuota, lastTestedAt: now }
+    } catch (err: any) {
+      console.warn(`[AntigravityProvider] Probe error:`, err.response?.data || err.message)
+      return { status: 'error', lastTestedAt: now }
     }
   }
 }
