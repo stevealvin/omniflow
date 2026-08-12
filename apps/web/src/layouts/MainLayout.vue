@@ -31,7 +31,7 @@ const toggleSidebar = () => {
 // 侧边栏导航菜单项
 const menuItems = [
   { key: '/', title: '仪表数据大盘', icon: Zap },
-  { key: '/keys', title: 'API 密钥与算力控制台', icon: Key },
+  { key: '/quota', title: 'AI 配额监控', icon: Key },
   { key: '/watch-simulator', title: 'Redmi Watch 6 模拟器', icon: Watch },
   { key: '/alerts', title: '星环通知与路由', icon: Bell },
   { key: '/app-hub', title: '扩展应用中心', icon: LayoutGrid }

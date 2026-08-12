@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useQuotaStore, type ApiKeyConfig, type QuotaDetailItem } from '@/stores/quota'
 import {
   Zap,
@@ -13,9 +14,15 @@ import {
   Key,
   Globe,
   Sparkles,
-  Calendar
+  Calendar,
+  LayoutGrid,
+  Watch,
+  Bell,
+  Bot,
+  ArrowUpRight
 } from '@lucide/vue'
 
+const router = useRouter()
 const quotaStore = useQuotaStore()
 
 // 格式化倒计时秒数
@@ -110,6 +117,50 @@ const metricsSummary = computed(() => {
 // 筛选 Token Plane 托管账号与 API Key 资源
 const tokenPlaneKeys = computed(() => quotaStore.keys.filter((k) => k.type === 'token-plane'))
 const apiKeyResources = computed(() => quotaStore.keys.filter((k) => k.type === 'api-key'))
+
+// 个人微服务与扩展应用项目列表
+const myApps = [
+  {
+    id: 'key-manager',
+    name: 'AI 配额监控',
+    desc: '全盘管控 Token Plane 托管账号与 API Key 算力配额，支持即时探测与探针联动',
+    tag: '内核核心',
+    tagClass: 'bg-indigo-50 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400 border-indigo-200/60 dark:border-indigo-800/60',
+    icon: Bot,
+    iconBg: 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-indigo-500/20',
+    path: '/quota'
+  },
+  {
+    id: 'redmi-watch',
+    name: 'Redmi Watch 6 抬腕视角',
+    desc: '基于 Xiaomi Vela OS 穿戴设备视角，抬腕即刻离线/在线联动同步云端算力',
+    tag: '穿戴端联通',
+    tagClass: 'bg-amber-50 dark:bg-amber-950/70 text-amber-600 dark:text-amber-400 border-amber-200/60 dark:border-amber-800/60',
+    icon: Watch,
+    iconBg: 'bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-amber-500/20',
+    path: '/watch-simulator'
+  },
+  {
+    id: 'alert-gateway',
+    name: '星环通知与路由网关',
+    desc: '设置低配额告警阈值，额度不足时即时触发 Telegram Bot 与 Bark 手机警报',
+    tag: '消息路由',
+    tagClass: 'bg-rose-50 dark:bg-rose-950/70 text-rose-600 dark:text-rose-400 border-rose-200/60 dark:border-rose-800/60',
+    icon: Bell,
+    iconBg: 'bg-gradient-to-br from-rose-500 to-pink-600 text-white shadow-rose-500/20',
+    path: '/alerts'
+  },
+  {
+    id: 'app-hub',
+    name: '微服务与插件生态槽',
+    desc: '扩展短链中转、手表随手记待办与 System Prompt 模版库等个人插件槽',
+    tag: '生态扩展',
+    tagClass: 'bg-emerald-50 dark:bg-emerald-950/70 text-emerald-600 dark:text-emerald-400 border-emerald-200/60 dark:border-emerald-800/60',
+    icon: LayoutGrid,
+    iconBg: 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-emerald-500/20',
+    path: '/app-hub'
+  }
+]
 
 onMounted(() => {
   quotaStore.startCountdown()
@@ -230,86 +281,98 @@ onMounted(() => {
               </div>
             </div>
 
-            <!-- 半圆仪表盘 -->
-            <div v-if="item.tokenPlaneQuota" class="p-4 rounded-2xl bg-slate-50/80 dark:bg-zinc-800/50 border border-slate-100 dark:border-zinc-800 flex items-center gap-5">
-              <div class="shrink-0 relative w-[100px] h-[100px] flex items-center justify-center">
-                <a-progress
-                  type="dashboard"
-                  :percent="item.tokenPlaneQuota.remainingPercentage"
-                  :size="100"
-                  :stroke-width="9"
-                  :stroke-color="item.provider === 'google-antigravity' ? { '0%': '#818cf8', '100%': '#4f46e5' } : { '0%': '#34d399', '100%': '#059669' }"
-                  :show-info="false"
-                />
-                <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span class="text-[10px] text-slate-400 font-sans">剩余</span>
-                  <span class="text-base font-bold font-mono text-slate-900 dark:text-white">
-                    {{ item.tokenPlaneQuota.remainingPercentage }}%
-                  </span>
-                </div>
-              </div>
-
-              <div class="flex-1 space-y-2 text-xs min-w-0">
-                <div v-if="formatCountdown(item.tokenPlaneQuota.secondsRemaining)" class="flex justify-between items-center py-1.5 px-3 rounded-xl bg-slate-100/80 dark:bg-zinc-800/60">
-                  <span class="text-slate-500 dark:text-slate-400 font-medium">重置倒计时</span>
-                  <span class="font-mono text-indigo-600 dark:text-indigo-400 font-extrabold">
-                    {{ formatCountdown(item.tokenPlaneQuota.secondsRemaining) }}
-                  </span>
-                </div>
-
-                <div v-if="item.tokenPlaneQuota.nextResetTime" class="flex justify-between items-center py-1.5 px-3 rounded-xl bg-slate-100/80 dark:bg-zinc-800/60">
-                  <span class="text-slate-500 dark:text-slate-400 font-medium">重置时刻</span>
-                  <span class="font-mono font-bold text-slate-700 dark:text-slate-300">
-                    {{ item.tokenPlaneQuota.nextResetTime }}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <!-- 算力池配额明细分组网格 (无顶部分割线纯净排版) -->
-            <div v-if="item.tokenPlaneQuota?.details?.length" class="mt-3 space-y-3">
+            <!-- 配额主体区：如果有 details 则左右各 50% 分栏；如果没有 details 则居中显示 -->
+            <div
+              v-if="item.tokenPlaneQuota"
+              :class="[
+                'flex items-center gap-4 min-w-0 py-1',
+                item.tokenPlaneQuota.details?.length ? 'justify-between' : 'justify-center'
+              ]"
+            >
+              <!-- 左列：圆形仪表盘 + 倒计时 + 重置时刻 -->
               <div
-                v-for="(groupItems, groupName) in groupQuotaDetails(item.tokenPlaneQuota.details)"
-                :key="groupName"
-                class="space-y-1.5"
+                :class="[
+                  'flex flex-col items-center justify-center gap-1.5',
+                  item.tokenPlaneQuota.details?.length ? 'w-1/2 flex-1 min-w-0' : 'w-full'
+                ]"
               >
-                <!-- 分组标题 (无背景) -->
-                <div class="flex items-center gap-1.5 text-xs font-extrabold text-slate-700 dark:text-slate-300 tracking-tight">
-                  <Sparkles v-if="String(groupName).toLowerCase().includes('gemini')" class="w-3.5 h-3.5 text-indigo-500" />
-                  <Zap v-else-if="String(groupName).toLowerCase().includes('claude')" class="w-3.5 h-3.5 text-amber-500" />
-                  <Globe v-else class="w-3.5 h-3.5 text-sky-500" />
-                  {{ groupName }}
+                <!-- 圆形仪表盘 -->
+                <div class="relative w-[88px] h-[88px] flex items-center justify-center shrink-0">
+                  <a-progress
+                    type="dashboard"
+                    :percent="item.tokenPlaneQuota.remainingPercentage"
+                    :size="88"
+                    :stroke-width="9"
+                    :stroke-color="item.provider === 'google-antigravity' ? { '0%': '#818cf8', '100%': '#4f46e5' } : { '0%': '#34d399', '100%': '#059669' }"
+                    :show-info="false"
+                  />
+                  <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span class="text-[9px] text-slate-400 font-medium leading-none mb-0.5">剩余</span>
+                    <span class="text-lg font-black font-mono tracking-tight text-slate-900 dark:text-white leading-none">
+                      {{ item.tokenPlaneQuota.remainingPercentage }}%
+                    </span>
+                  </div>
                 </div>
 
-                <!-- 该分组下的算力桶列表 (纯净无背景 + 极简进度条) -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 py-0.5">
-                  <div
-                    v-for="detail in groupItems"
-                    :key="detail.name"
-                    class="flex items-center justify-between text-xs gap-2 py-1 px-1 rounded-md"
-                  >
-                    <div class="min-w-0 flex-1 space-y-1">
-                      <div class="flex items-center justify-between gap-1">
-                        <span class="font-bold text-slate-800 dark:text-slate-200 truncate text-[11px]">
+                <!-- 倒计时 + 重置时刻（仪表盘下方） -->
+                <div class="space-y-0.5 text-center w-full">
+                  <div v-if="formatCountdown(item.tokenPlaneQuota.secondsRemaining)" class="flex items-center justify-center gap-1 text-xs">
+                    <Clock class="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                    <span class="font-mono font-bold text-indigo-600 dark:text-indigo-400">{{ formatCountdown(item.tokenPlaneQuota.secondsRemaining) }}</span>
+                  </div>
+                  <div v-if="item.tokenPlaneQuota.nextResetTime" class="flex items-center justify-center gap-1 text-xs">
+                    <Calendar class="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                    <span class="font-mono text-slate-500 dark:text-slate-400">{{ item.tokenPlaneQuota.nextResetTime }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 竖向分隔线 (仅当有 details 时) -->
+              <div
+                v-if="item.tokenPlaneQuota.details?.length"
+                class="shrink-0 w-px bg-slate-200 dark:bg-zinc-700/80 self-stretch my-1"
+              />
+
+              <!-- 右列：details 分组 (占 50% 空间) -->
+              <div
+                v-if="item.tokenPlaneQuota.details?.length"
+                class="w-1/2 flex-1 min-w-0 space-y-2"
+              >
+                <div
+                  v-for="(groupItems, groupName) in groupQuotaDetails(item.tokenPlaneQuota.details)"
+                  :key="groupName"
+                  class="space-y-1"
+                >
+                  <!-- 分组标题 -->
+                  <div class="flex items-center gap-1 text-xs font-extrabold text-slate-600 dark:text-slate-300 tracking-wide">
+                    <Sparkles v-if="String(groupName).toLowerCase().includes('gemini')" class="w-3.5 h-3.5 text-indigo-400" />
+                    <Zap v-else-if="String(groupName).toLowerCase().includes('claude')" class="w-3.5 h-3.5 text-amber-400" />
+                    <Globe v-else class="w-3.5 h-3.5 text-sky-400" />
+                    {{ groupName }}
+                  </div>
+
+                  <!-- 该分组下的算力桶列表 -->
+                  <div class="space-y-1">
+                    <div
+                      v-for="detail in groupItems"
+                      :key="detail.name"
+                      class="space-y-0.5"
+                    >
+                      <div class="flex items-center justify-between text-xs">
+                        <span class="font-medium text-slate-700 dark:text-slate-300 truncate">
                           {{ detail.name }}
+                          <span v-if="detail.secondsRemaining > 0" class="font-normal font-mono text-slate-400 dark:text-slate-500">（{{ formatCountdown(detail.secondsRemaining) }}）</span>
                         </span>
-                        <span class="font-black font-mono text-indigo-600 dark:text-indigo-400 text-[11px] shrink-0">
-                          {{ detail.remainingPercentage }}%
-                        </span>
+                        <span class="font-mono font-bold text-indigo-600 dark:text-indigo-400 shrink-0 ml-1">{{ detail.remainingPercentage }}%</span>
                       </div>
-                      <!-- 极简 4px 动态进度条 -->
-                      <div class="w-full bg-slate-200/60 dark:bg-zinc-800 h-1 rounded-full overflow-hidden">
+                      <div class="w-full h-1 rounded-full bg-slate-200/60 dark:bg-zinc-800 overflow-hidden">
                         <div
                           class="h-full rounded-full transition-all duration-500"
                           :class="detail.remainingPercentage > 50 ? 'bg-emerald-500' : detail.remainingPercentage > 15 ? 'bg-amber-500' : 'bg-rose-500'"
                           :style="{ width: `${detail.remainingPercentage}%` }"
-                        ></div>
+                        />
                       </div>
                     </div>
-
-                    <span v-if="detail.secondsRemaining > 0" class="text-[10px] text-slate-400 font-mono shrink-0 pl-1">
-                      {{ formatCountdown(detail.secondsRemaining) }}
-                    </span>
                   </div>
                 </div>
               </div>
@@ -363,6 +426,58 @@ onMounted(() => {
                   {{ item.quotaInfo.latencyMs ? `${item.quotaInfo.latencyMs}ms` : '---' }}
                 </p>
               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. 我的应用与扩展项目矩阵 (My Apps & Personal Services) -->
+      <div class="space-y-3 pt-3 border-t border-slate-200/70 dark:border-zinc-800/80">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <LayoutGrid class="w-4 h-4 text-indigo-500" />
+            我的应用与微服务项目
+          </h3>
+          <span class="text-xs text-slate-400 font-mono">
+            快捷访问全系个人应用
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div
+            v-for="app in myApps"
+            :key="app.id"
+            @click="router.push(app.path)"
+            class="group p-4 rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-white/90 dark:bg-zinc-900/90 hover:border-indigo-300 dark:hover:border-indigo-700/70 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 flex flex-col justify-between space-y-3 cursor-pointer"
+          >
+            <div class="flex items-start justify-between">
+              <div
+                :class="[
+                  'w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shadow-md shrink-0 transition-transform group-hover:scale-105',
+                  app.iconBg
+                ]"
+              >
+                <component :is="app.icon" class="w-5 h-5" />
+              </div>
+
+              <span
+                :class="[
+                  'px-2 py-0.5 rounded-full text-[10px] font-bold border',
+                  app.tagClass
+                ]"
+              >
+                {{ app.tag }}
+              </span>
+            </div>
+
+            <div class="space-y-1">
+              <div class="flex items-center justify-between font-bold text-sm text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                <span>{{ app.name }}</span>
+                <ArrowUpRight class="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity text-indigo-500" />
+              </div>
+              <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-2">
+                {{ app.desc }}
+              </p>
             </div>
           </div>
         </div>

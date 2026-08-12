@@ -15,10 +15,10 @@ const router = createRouter({
           meta: { title: '星环流动仪表数据大盘' }
         },
         {
-          path: 'keys',
+          path: 'quota',
           name: 'KeyQuotaManager',
           component: () => import('@/views/KeyQuotaManager.vue'),
-          meta: { title: 'API 密钥与算力控制台' }
+          meta: { title: 'AI 配额监控' }
         },
         {
           path: 'watch-simulator',
