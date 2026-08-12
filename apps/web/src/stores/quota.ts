@@ -19,7 +19,6 @@ export interface TokenPlaneQuota {
   nextResetTime: string
   planType?: string
   details?: QuotaDetailItem[]
-  rawQuotaData?: any
 }
 
 export interface ApiKeyQuotaInfo {
@@ -44,10 +43,10 @@ export interface ApiKeyConfig {
   status: 'active' | 'error' | 'untested'
   lastTestedAt?: string
   email?: string
-  planType?: string
 
-  tokenPlaneQuota?: TokenPlaneQuota
+  tokenQuota?: TokenPlaneQuota
   quotaInfo?: ApiKeyQuotaInfo
+  rawQuotaData?: any
 }
 
 export const useQuotaStore = defineStore('quota', () => {
@@ -68,11 +67,11 @@ export const useQuotaStore = defineStore('quota', () => {
     if (timer) return
     timer = setInterval(() => {
       keys.value.forEach((k) => {
-        if (k.tokenPlaneQuota && k.tokenPlaneQuota.secondsRemaining > 0) {
-          k.tokenPlaneQuota.secondsRemaining -= 1
+        if (k.tokenQuota && k.tokenQuota.secondsRemaining > 0) {
+          k.tokenQuota.secondsRemaining -= 1
         }
-        if (k.tokenPlaneQuota?.details) {
-          k.tokenPlaneQuota.details.forEach((d) => {
+        if (k.tokenQuota?.details) {
+          k.tokenQuota.details.forEach((d) => {
             if (d.secondsRemaining > 0) d.secondsRemaining -= 1
           })
         }
@@ -93,7 +92,7 @@ export const useQuotaStore = defineStore('quota', () => {
     }
   }
 
-  // 2. 刷新测试单个 Key / 资源探针 (支持多按钮并发并行)
+  // 2. 刷新测试单个 Key / 资源探针 (支持多卡片并行并发加载)
   const checkSingleKey = async (id: string) => {
     checkingIds[id] = true
     try {

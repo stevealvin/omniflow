@@ -42,6 +42,34 @@ const formatCountdown = (totalSeconds?: number) => {
   return parts.join(' ')
 }
 
+import dayjs from 'dayjs'
+
+/**
+ * 从 nextResetTime 时间字符串 (如 "2026-08-19 08:49:03") 动态计算剩余秒数
+ */
+const getRemainingSecondsFromResetTime = (nextResetTime?: string, fallbackSeconds?: number): number => {
+  if (!nextResetTime || nextResetTime === '无需重置') {
+    return fallbackSeconds && fallbackSeconds > 0 ? fallbackSeconds : 0
+  }
+  const diffSec = dayjs(nextResetTime).diff(dayjs(), 'second')
+  return isNaN(diffSec) ? (fallbackSeconds && fallbackSeconds > 0 ? fallbackSeconds : 0) : Math.max(0, diffSec)
+}
+
+// 提取卡片有效倒计时秒数（结合 nextResetTime 时间字符串与静态秒数动态计算）
+const getCardSecondsRemaining = (quota?: TokenPlaneQuota) => {
+  if (!quota) return 0
+  const dynamicSecs = getRemainingSecondsFromResetTime(quota.nextResetTime, quota.secondsRemaining)
+  if (dynamicSecs > 0) return dynamicSecs
+
+  if (quota.details?.length) {
+    const validSecs = quota.details
+      .map((d) => getRemainingSecondsFromResetTime(d.nextResetTime, d.secondsRemaining))
+      .filter((s) => s > 0)
+    if (validSecs.length) return Math.min(...validSecs)
+  }
+  return 0
+}
+
 // 将 details 列表按 providerGroup 分组 (如 Gemini 算力组、Claude 算力组)
 const groupQuotaDetails = (details?: QuotaDetailItem[]) => {
   if (!details || details.length === 0) return {}
@@ -263,17 +291,17 @@ onMounted(() => {
 
               <div class="flex items-center gap-2 shrink-0">
                 <span
-                  v-if="item.tokenPlaneQuota?.planType || item.planType"
+                  v-if="item.tokenQuota?.planType"
                   :class="[
                     'px-2.5 py-0.5 rounded-full text-xs font-extrabold uppercase border tracking-wider',
-                    (item.tokenPlaneQuota?.planType || item.planType)?.includes('ULTRA')
+                    item.tokenQuota.planType.toUpperCase().includes('ULTRA')
                       ? 'bg-amber-50 dark:bg-amber-950/70 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800'
-                      : (item.tokenPlaneQuota?.planType || item.planType)?.includes('PRO')
+                      : item.tokenQuota.planType.toUpperCase().includes('PRO')
                       ? 'bg-indigo-50 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800'
                       : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-zinc-700'
                   ]"
                 >
-                  {{ item.tokenPlaneQuota?.planType || item.planType }}
+                  {{ item.tokenQuota.planType }}
                 </span>
                 <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60">
                   {{ item.provider === 'google-antigravity' ? 'Antigravity' : 'OpenAI Codex' }}
@@ -283,24 +311,24 @@ onMounted(() => {
 
             <!-- 配额主体区：左列（圆形仪表+文字，固定宽度）/ 右列（details 伸展占满剩余宽度） -->
             <div
-              v-if="item.tokenPlaneQuota"
+              v-if="item.tokenQuota"
               :class="[
                 'flex items-center gap-5 min-w-0 py-1',
-                item.tokenPlaneQuota.details?.length ? 'justify-between' : 'justify-center'
+                item.tokenQuota.details?.length ? 'justify-between' : 'justify-center'
               ]"
             >
               <!-- 左列：圆形仪表盘 + 倒计时 + 重置时刻 (较宽区域 224px，居中) -->
               <div
                 :class="[
                   'flex flex-col items-center justify-center gap-2 shrink-0',
-                  item.tokenPlaneQuota.details?.length ? 'w-56' : 'w-full'
+                  item.tokenQuota.details?.length ? 'w-56' : 'w-full'
                 ]"
               >
                 <!-- 圆形仪表盘 (放大为 110px) -->
                 <div class="relative w-[110px] h-[110px] flex items-center justify-center shrink-0">
                   <a-progress
                     type="dashboard"
-                    :percent="item.tokenPlaneQuota.remainingPercentage"
+                    :percent="item.tokenQuota.remainingPercentage"
                     :size="110"
                     :stroke-width="10"
                     :stroke-color="item.provider === 'google-antigravity' ? { '0%': '#818cf8', '100%': '#4f46e5' } : { '0%': '#34d399', '100%': '#059669' }"
@@ -309,37 +337,37 @@ onMounted(() => {
                   <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                     <span class="text-[10px] text-slate-400 font-medium leading-none mb-1">剩余</span>
                     <span class="text-xl font-black font-mono tracking-tight text-slate-900 dark:text-white leading-none">
-                      {{ item.tokenPlaneQuota.remainingPercentage }}%
+                      {{ item.tokenQuota.remainingPercentage }}%
                     </span>
                   </div>
                 </div>
 
                 <!-- 倒计时 + 重置时刻（仪表盘下方） -->
                 <div class="space-y-1 text-center w-full">
-                  <div v-if="formatCountdown(item.tokenPlaneQuota.secondsRemaining)" class="flex items-center justify-center gap-1 text-xs">
+                  <div v-if="getCardSecondsRemaining(item.tokenQuota) > 0" class="flex items-center justify-center gap-1 text-xs">
                     <Clock class="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                    <span class="font-mono font-bold text-indigo-600 dark:text-indigo-400">{{ formatCountdown(item.tokenPlaneQuota.secondsRemaining) }}</span>
+                    <span class="font-mono font-bold text-indigo-600 dark:text-indigo-400">{{ formatCountdown(getCardSecondsRemaining(item.tokenQuota)) }}</span>
                   </div>
-                  <div v-if="item.tokenPlaneQuota.nextResetTime" class="flex items-center justify-center gap-1 text-xs">
+                  <div v-if="item.tokenQuota.nextResetTime" class="flex items-center justify-center gap-1 text-xs">
                     <Calendar class="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                    <span class="font-mono text-slate-500 dark:text-slate-400">{{ item.tokenPlaneQuota.nextResetTime }}</span>
+                    <span class="font-mono text-slate-500 dark:text-slate-400">{{ item.tokenQuota.nextResetTime }}</span>
                   </div>
                 </div>
               </div>
 
               <!-- 竖向分隔线 (仅当有 details 时) -->
               <div
-                v-if="item.tokenPlaneQuota.details?.length"
+                v-if="item.tokenQuota.details?.length"
                 class="shrink-0 w-px bg-slate-200 dark:bg-zinc-700/80 self-stretch my-1"
               />
 
               <!-- 右列：details 分组 (占满剩余宽度的 flex-1) -->
               <div
-                v-if="item.tokenPlaneQuota.details?.length"
+                v-if="item.tokenQuota.details?.length"
                 class="flex-1 min-w-0 space-y-3 pl-1"
               >
                 <div
-                  v-for="(groupItems, groupName) in groupQuotaDetails(item.tokenPlaneQuota.details)"
+                  v-for="(groupItems, groupName) in groupQuotaDetails(item.tokenQuota.details)"
                   :key="groupName"
                   class="space-y-1.5"
                 >
@@ -361,7 +389,7 @@ onMounted(() => {
                       <div class="flex items-center justify-between text-xs gap-2">
                         <span class="font-medium text-slate-700 dark:text-slate-300 truncate">
                           {{ detail.name }}
-                          <span v-if="detail.secondsRemaining > 0" class="font-normal font-mono text-[10px] text-slate-400 dark:text-slate-500 ml-0.5">（{{ formatCountdown(detail.secondsRemaining) }}）</span>
+                          <span v-if="getRemainingSecondsFromResetTime(detail.nextResetTime, detail.secondsRemaining) > 0" class="font-normal font-mono text-[10px] text-slate-400 dark:text-slate-500 ml-0.5">（{{ formatCountdown(getRemainingSecondsFromResetTime(detail.nextResetTime, detail.secondsRemaining)) }}）</span>
                         </span>
                         <span class="font-mono font-bold text-indigo-600 dark:text-indigo-400 shrink-0">{{ detail.remainingPercentage }}%</span>
                       </div>
@@ -378,7 +406,7 @@ onMounted(() => {
               </div>
             </div>
 
-            <div v-else-if="!item.tokenPlaneQuota" class="p-3 text-xs text-amber-600 bg-amber-50/50 rounded-xl border border-amber-200/50 flex items-center gap-2">
+            <div v-else-if="!item.tokenQuota" class="p-3 text-xs text-amber-600 bg-amber-50/50 rounded-xl border border-amber-200/50 flex items-center gap-2">
               <AlertCircle class="w-4 h-4 shrink-0" />
               <span>暂未获取上游配额数据</span>
             </div>

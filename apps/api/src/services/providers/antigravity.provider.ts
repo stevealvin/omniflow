@@ -2,12 +2,14 @@ import type { ApiKeyConfig, QuotaFetchResult, TokenPlaneQuota, QuotaDetailItem }
 import type { IQuotaProvider } from './base.provider.js'
 import { httpClient } from '../../utils/http.js'
 
+import dayjs from 'dayjs'
+
 const DEFAULT_CLIENT_ID = '1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com'
 const DEFAULT_CLIENT_SECRET = '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'
 const DEFAULT_BASE_URL = 'https://daily-cloudcode-pa.googleapis.com'
 const USER_AGENT = 'antigravity/2.6.0 windows/amd64'
 
-const formatDateTime = (date: Date) => date.toISOString().replace('T', ' ').substring(0, 19)
+const formatDateTime = (date: string | Date | number) => dayjs(date).format('YYYY-MM-DD HH:mm:ss')
 
 /**
  * Google Antigravity 托管账号算力配额探针 Provider 策略
@@ -96,7 +98,7 @@ export class AntigravityProvider implements IQuotaProvider {
     try {
       // 请求 A: loadCodeAssist 获取关联 GCP 项目与真实订阅套餐 (直接获取 paidTier.name)
       const { projectId, planType: detectedPlan } = await this.loadCodeAssist(baseUrl, token)
-      const planType = config.planType || detectedPlan || 'Google AI'
+      const planType = detectedPlan || 'Google AI'
 
       // 请求 B: v1internal:fetchAvailableModels
       const res = await httpClient.post(`${baseUrl}/v1internal:fetchAvailableModels`, projectId ? { project: projectId } : {}, {
@@ -171,21 +173,22 @@ export class AntigravityProvider implements IQuotaProvider {
       const secondsRemaining = primaryResetTime ? Math.max(0, Math.floor((new Date(primaryResetTime).getTime() - Date.now()) / 1000)) : 18000
       const nextResetTime = primaryResetTime ? formatDateTime(new Date(primaryResetTime)) : formatDateTime(new Date(Date.now() + secondsRemaining * 1000))
 
-      const tokenPlaneQuota: TokenPlaneQuota = {
+      const tokenQuota: TokenPlaneQuota = {
         usedPercentage: Math.max(0, 100 - remainingPercentage),
         remainingPercentage,
         resetIntervalHours: 5,
         secondsRemaining,
         nextResetTime,
         planType,
-        details,
-        rawQuotaData: {
-          models: res.data,
-          summary: summaryRes?.data || null
-        }
+        details
       }
 
-      return { status: 'active', tokenPlaneQuota, lastTestedAt: now }
+      const rawQuotaData = {
+        models: res.data,
+        summary: summaryRes?.data || null
+      }
+
+      return { status: 'active', tokenQuota, rawQuotaData, lastTestedAt: now }
     } catch (err: any) {
       console.warn(`[AntigravityProvider] Probe error:`, err.response?.data || err.message)
       return { status: 'error', lastTestedAt: now }

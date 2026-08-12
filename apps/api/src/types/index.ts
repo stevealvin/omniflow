@@ -17,7 +17,6 @@ export interface TokenPlaneQuota {
   nextResetTime: string
   planType?: string
   details?: QuotaDetailItem[] // 通用配额分类明细列表
-  rawQuotaData?: any // 完整保存并返回上游 API 响应的原始数据 JSON
 }
 
 // API Key 专属 Rate-Limit 探针信息
@@ -60,17 +59,17 @@ export interface ApiKeyConfig {
   status: 'active' | 'error' | 'untested'
   lastTestedAt?: string
   email?: string
-  planType?: string
 
-  // 仅在真实拉取到上游数据时填充，取消默认假数据填充
-  tokenPlaneQuota?: TokenPlaneQuota
+  tokenQuota?: TokenPlaneQuota
   quotaInfo?: ApiKeyQuotaInfo
+  rawQuotaData?: any // 提升至根层级，避免混入 tokenQuota
 }
 
 // 策略模式 Provider 执行返回数据结构
 export interface QuotaFetchResult {
   status: 'active' | 'error' | 'untested'
-  tokenPlaneQuota?: TokenPlaneQuota
+  tokenQuota?: TokenPlaneQuota
   quotaInfo?: ApiKeyQuotaInfo
+  rawQuotaData?: any
   lastTestedAt: string
 }

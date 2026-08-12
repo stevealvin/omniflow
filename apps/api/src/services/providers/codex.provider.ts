@@ -2,18 +2,12 @@ import type { ApiKeyConfig, QuotaFetchResult, TokenPlaneQuota } from '../../type
 import type { IQuotaProvider } from './base.provider.js'
 import { httpClient } from '../../utils/http.js'
 
+import dayjs from 'dayjs'
+
 /**
  * 格式化年月日 时分秒 (YYYY-MM-DD HH:mm:ss)
  */
-const formatFullDateTime = (date: Date) => {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  const hh = String(date.getHours()).padStart(2, '0')
-  const mm = String(date.getMinutes()).padStart(2, '0')
-  const ss = String(date.getSeconds()).padStart(2, '0')
-  return `${y}-${m}-${d} ${hh}:${mm}:${ss}`
-}
+const formatFullDateTime = (date: string | Date | number) => dayjs(date).format('YYYY-MM-DD HH:mm:ss')
 
 /**
  * OpenAI Codex / Wham 托管账号配额探针 Provider 策略
@@ -50,17 +44,16 @@ export class CodexProvider implements IQuotaProvider {
       const secRem = primaryWindow.reset_time_remaining_seconds || 10800
       const nextReset = formatFullDateTime(new Date(Date.now() + secRem * 1000))
 
-      const tokenPlaneQuota: TokenPlaneQuota = {
+      const tokenQuota: TokenPlaneQuota = {
         usedPercentage: usedPct,
         remainingPercentage,
         resetIntervalHours: 3,
         secondsRemaining: secRem,
         nextResetTime: nextReset,
-        planType: data?.plan_type || config.planType || 'Plus / Team',
-        rawQuotaData: data
+        planType: data?.plan_type || 'Plus / Team'
       }
 
-      return { status: 'active', tokenPlaneQuota, lastTestedAt: now }
+      return { status: 'active', tokenQuota, rawQuotaData: data, lastTestedAt: now }
     } catch (err: any) {
       console.warn(`[CodexProvider] Probe error:`, err.response?.data || err.message)
       return { status: 'error', lastTestedAt: now }

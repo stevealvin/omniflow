@@ -29,7 +29,6 @@ declare module 'vue' {
     ARadioButton: typeof import('antdv-next')['RadioButton']
     ARadioGroup: typeof import('antdv-next')['RadioGroup']
     ASelect: typeof import('antdv-next')['Select']
-    ASelectOption: typeof import('antdv-next')['SelectOption']
     ASpin: typeof import('antdv-next')['Spin']
     ATag: typeof import('antdv-next')['Tag']
     RouterLink: typeof import('vue-router')['RouterLink']

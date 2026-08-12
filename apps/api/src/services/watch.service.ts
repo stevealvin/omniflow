@@ -15,8 +15,8 @@ export const getWatchSyncData = async () => {
   return {
     appName: '星环流动 Watch',
     batterySave: true,
-    antiGravityUsage: ag?.tokenPlaneQuota?.usedPercentage ?? 0,
-    codexUsage: codex?.tokenPlaneQuota?.usedPercentage ?? 0,
+    antiGravityUsage: ag?.tokenQuota?.usedPercentage ?? 0,
+    codexUsage: codex?.tokenQuota?.usedPercentage ?? 0,
     resetTimeStr: now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
     statusAlert: false,
     syncTimestamp: Math.floor(now.getTime() / 1000)

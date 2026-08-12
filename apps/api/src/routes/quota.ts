@@ -44,8 +44,7 @@ quotaRouter.post('/quota', async (c) => {
     apiKey: body.apiKey || '',
     refreshToken: body.refreshToken || '',
     accessToken: body.accessToken || '',
-    email: body.email,
-    planType: body.planType
+    email: body.email
   })
 
   return c.json({

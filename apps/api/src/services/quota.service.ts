@@ -17,9 +17,9 @@ const toConfig = (r: any): ApiKeyConfig => ({
   email: r.email,
   status: r.status,
   lastTestedAt: r.last_tested_at,
-  planType: r.plan_type,
-  tokenPlaneQuota: r.token_plane_quota,
-  quotaInfo: r.quota_info
+  tokenQuota: r.token_quota,
+  quotaInfo: r.quota_info,
+  rawQuotaData: r.raw_quota_data
 })
 
 /**
@@ -35,11 +35,11 @@ const toDb = (c: Partial<ApiKeyConfig>) => ({
   refresh_token: c.refreshToken,
   access_token: c.accessToken,
   email: c.email,
-  plan_type: c.planType,
   status: c.status,
   last_tested_at: c.lastTestedAt,
-  token_plane_quota: c.tokenPlaneQuota,
-  quota_info: c.quotaInfo
+  token_quota: c.tokenQuota,
+  quota_info: c.quotaInfo,
+  raw_quota_data: c.rawQuotaData
 })
 
 let inMemoryStore: ApiKeyConfig[] = []
@@ -85,8 +85,9 @@ export const addQuotaConfig = async (payload: Omit<ApiKeyConfig, 'id' | 'status'
     ...tempKey,
     status: fetchResult.status,
     lastTestedAt: fetchResult.lastTestedAt,
-    tokenPlaneQuota: fetchResult.tokenPlaneQuota,
-    quotaInfo: fetchResult.quotaInfo
+    tokenQuota: fetchResult.tokenQuota,
+    quotaInfo: fetchResult.quotaInfo,
+    rawQuotaData: fetchResult.rawQuotaData
   }
 
   try {
@@ -169,8 +170,9 @@ export const probeQuotaConfig = async (config: ApiKeyConfig): Promise<ApiKeyConf
     ...config,
     status: result.status,
     lastTestedAt: result.lastTestedAt,
-    tokenPlaneQuota: result.tokenPlaneQuota,
-    quotaInfo: result.quotaInfo
+    tokenQuota: result.tokenQuota,
+    quotaInfo: result.quotaInfo,
+    rawQuotaData: result.rawQuotaData
   }
 
   await updateQuotaConfig(config.id, updated)

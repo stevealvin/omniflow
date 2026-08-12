@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useQuotaStore, type ApiKeyConfig, type QuotaDetailItem } from '@/stores/quota'
+import { useQuotaStore, type ApiKeyConfig, type QuotaDetailItem, type TokenPlaneQuota } from '@/stores/quota'
 import { message } from 'antdv-next'
 import {
   Key,
@@ -25,10 +25,7 @@ const isModalVisible = ref(false)
 const isEditing = ref(false)
 const editingId = ref<string | null>(null)
 const isSubmitting = ref(false)
-
-// 增加资源 modal 页签模式
 const modalTab = ref<'token-plane' | 'api-key'>('token-plane')
-
 const formRef = ref()
 
 const providerOptions = [
@@ -38,6 +35,14 @@ const providerOptions = [
   { label: 'Google AI Studio', value: 'google-aistudio' },
   { label: 'Generic (其他通用)', value: 'generic' }
 ]
+
+const PROVIDER_DEFAULTS: Record<string, { type: 'token-plane' | 'api-key'; baseUrl: string }> = {
+  'google-antigravity': { type: 'token-plane', baseUrl: 'https://daily-cloudcode-pa.googleapis.com' },
+  'openai-codex': { type: 'token-plane', baseUrl: 'https://chatgpt.com/backend-api' },
+  'google-aistudio': { type: 'api-key', baseUrl: 'https://generativelanguage.googleapis.com' },
+  'openai-compatible': { type: 'api-key', baseUrl: 'https://api.openai.com' },
+  'generic': { type: 'api-key', baseUrl: 'https://' }
+}
 
 const formData = ref({
   name: '',
@@ -50,28 +55,32 @@ const formData = ref({
   email: ''
 })
 
-// 选择 Provider 变化时自动填充默认 Base URL
+// 提取卡片有效倒计时秒数（结合 nextResetTime 时间字符串与静态秒数动态计算）
+const getCardSecondsRemaining = (quota?: TokenPlaneQuota) => {
+  if (!quota) return 0
+  const dynamicSecs = getRemainingSecondsFromResetTime(quota.nextResetTime, quota.secondsRemaining)
+  if (dynamicSecs > 0) return dynamicSecs
+
+  if (quota.details?.length) {
+    const validSecs = quota.details
+      .map((d) => getRemainingSecondsFromResetTime(d.nextResetTime, d.secondsRemaining))
+      .filter((s) => s > 0)
+    if (validSecs.length) return Math.min(...validSecs)
+  }
+  return 0
+}
+
+// 选择 Provider 变化时自动填充默认配置
 const handleProviderChange = (val: any) => {
-  if (!val) return
-  if (val === 'google-antigravity') {
-    modalTab.value = 'token-plane'
-    formData.value.baseUrl = 'https://daily-cloudcode-pa.googleapis.com'
-  } else if (val === 'openai-codex') {
-    modalTab.value = 'token-plane'
-    formData.value.baseUrl = 'https://chatgpt.com/backend-api'
-  } else if (val === 'google-aistudio') {
-    modalTab.value = 'api-key'
-    formData.value.baseUrl = 'https://generativelanguage.googleapis.com'
-  } else if (val === 'openai-compatible') {
-    modalTab.value = 'api-key'
-    formData.value.baseUrl = 'https://api.openai.com'
-  } else if (val === 'generic') {
-    modalTab.value = 'api-key'
-    if (!formData.value.baseUrl) formData.value.baseUrl = 'https://'
+  if (!val || !PROVIDER_DEFAULTS[val]) return
+  const def = PROVIDER_DEFAULTS[val]
+  modalTab.value = def.type
+  if (!formData.value.baseUrl || val !== 'generic') {
+    formData.value.baseUrl = def.baseUrl
   }
 }
 
-// 切换大类 Tab 时处理
+// 切换 Tab 按钮
 const handleTabChange = (type: 'token-plane' | 'api-key') => {
   modalTab.value = type
   if (type === 'token-plane') {
@@ -87,7 +96,7 @@ const handleTabChange = (type: 'token-plane' | 'api-key') => {
   }
 }
 
-// 倒计时格式化为 "X日 X时 X分 X秒"
+// 倒计时格式化
 const formatCountdown = (totalSeconds?: number) => {
   if (!totalSeconds || totalSeconds <= 0) return ''
   const days = Math.floor(totalSeconds / 86400)
@@ -104,41 +113,48 @@ const formatCountdown = (totalSeconds?: number) => {
   return parts.join(' ')
 }
 
-// 掩码脱敏 API Key / Token 显示
+import dayjs from 'dayjs'
+
+/**
+ * 从 nextResetTime 时间字符串 (如 "2026-08-19 08:49:03") 动态计算剩余秒数
+ */
+const getRemainingSecondsFromResetTime = (nextResetTime?: string, fallbackSeconds?: number): number => {
+  if (!nextResetTime || nextResetTime === '无需重置') {
+    return fallbackSeconds && fallbackSeconds > 0 ? fallbackSeconds : 0
+  }
+  const diffSec = dayjs(nextResetTime).diff(dayjs(), 'second')
+  return isNaN(diffSec) ? (fallbackSeconds && fallbackSeconds > 0 ? fallbackSeconds : 0) : Math.max(0, diffSec)
+}
+
+// 掩码脱敏显示
 const maskKey = (key?: string) => {
   if (!key) return ''
   if (key.length <= 10) return '••••••••'
   return `${key.slice(0, 6)}••••••••${key.slice(-4)}`
 }
 
-// 将 details 列表按 providerGroup 分组 (如 Gemini 算力组、Claude 算力组)
+// 按组归类配额细节
 const groupQuotaDetails = (details?: QuotaDetailItem[]) => {
   if (!details || details.length === 0) return {}
   const groups: Record<string, QuotaDetailItem[]> = {}
   for (const item of details) {
     const rawGroup = item.providerGroup || '算力池'
-    if (!groups[rawGroup]) {
-      groups[rawGroup] = []
-    }
+    if (!groups[rawGroup]) groups[rawGroup] = []
     groups[rawGroup].push(item)
   }
   return groups
 }
 
-// 按照提供商获取 Badge 样式分类
-const getProviderBadgeStyle = (provider: string) => {
-  switch (provider) {
-    case 'google-antigravity':
-      return 'bg-indigo-600 text-white'
-    case 'openai-codex':
-      return 'bg-emerald-600 text-white'
-    case 'google-aistudio':
-      return 'bg-sky-600 text-white'
-    case 'openai-compatible':
-      return 'bg-teal-600 text-white'
-    default:
-      return 'bg-slate-700 text-white'
+// 获取订阅类型 Badge 样式
+const getPlanTypeBadgeStyle = (planType?: string) => {
+  const lower = (planType || '').toLowerCase()
+  if (lower.includes('ultra')) {
+    return 'bg-gradient-to-r from-amber-500/10 to-orange-500/10 text-amber-600 dark:text-amber-400 border-amber-300/60 dark:border-amber-700/60'
   }
+  if (lower.includes('pro')) {
+    return 'bg-gradient-to-r from-indigo-500/10 to-purple-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-300/60 dark:border-indigo-700/60'
+  }
+  return 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-zinc-700'
 }
 
 const openAddModal = () => {
@@ -182,14 +198,13 @@ const openEditModal = (item: ApiKeyConfig) => {
 const handleSave = async () => {
   try {
     await formRef.value?.validate()
-  } catch (err) {
+  } catch {
     return
   }
 
   isSubmitting.value = true
   try {
     formData.value.type = modalTab.value
-
     if (isEditing.value && editingId.value) {
       await quotaStore.updateKey(editingId.value, formData.value as any)
       message.success('更新 API 资源成功')
@@ -275,7 +290,7 @@ onMounted(() => {
       </a-empty>
     </div>
 
-    <!-- 扁平卡片 Grid (无阴影 + 首页半圆仪表盘 dashboard 样式 + planType + 具体重置时间) -->
+    <!-- 扁平卡片 Grid -->
     <div v-else class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div
         v-for="item in quotaStore.keys"
@@ -312,17 +327,10 @@ onMounted(() => {
               <!-- 右上角 Badge 组 -->
               <div class="flex items-center gap-2 shrink-0">
                 <span
-                  v-if="item.tokenPlaneQuota?.planType || item.planType"
-                  :class="[
-                    'px-3 py-1 rounded-full text-xs font-black tracking-wide border uppercase shadow-2xs',
-                    (item.tokenPlaneQuota?.planType || item.planType)?.toLowerCase().includes('ultra')
-                      ? 'bg-gradient-to-r from-amber-500/10 to-orange-500/10 text-amber-600 dark:text-amber-400 border-amber-300/60 dark:border-amber-700/60'
-                      : (item.tokenPlaneQuota?.planType || item.planType)?.toLowerCase().includes('pro')
-                      ? 'bg-gradient-to-r from-indigo-500/10 to-purple-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-300/60 dark:border-indigo-700/60'
-                      : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-zinc-700'
-                  ]"
+                  v-if="item.tokenQuota?.planType"
+                  :class="['px-3 py-1 rounded-full text-xs font-black tracking-wide border uppercase shadow-2xs', getPlanTypeBadgeStyle(item.tokenQuota.planType)]"
                 >
-                  {{ item.tokenPlaneQuota?.planType || item.planType }}
+                  {{ item.tokenQuota.planType }}
                 </span>
 
                 <span class="px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60 flex items-center gap-1.5">
@@ -332,26 +340,26 @@ onMounted(() => {
               </div>
             </div>
 
-            <!-- 配额主体区：左列（圆形仪表+文字，固定宽度）/ 右列（details 伸展占满剩余宽度） -->
+            <!-- 配额主体区：左列（圆形仪表+文字） / 右列（details 伸展占满） -->
             <div
-              v-if="item.tokenPlaneQuota"
+              v-if="item.tokenQuota"
               :class="[
                 'flex items-center gap-5 min-w-0 py-1',
-                item.tokenPlaneQuota.details?.length ? 'justify-between' : 'justify-center'
+                item.tokenQuota.details?.length ? 'justify-between' : 'justify-center'
               ]"
             >
-              <!-- 左列：圆形仪表盘 + 倒计时 + 重置时刻 (较宽区域 224px，居中) -->
+              <!-- 左列：圆形仪表盘 + 倒计时 + 重置时刻 -->
               <div
                 :class="[
                   'flex flex-col items-center justify-center gap-2 shrink-0',
-                  item.tokenPlaneQuota.details?.length ? 'w-56' : 'w-full'
+                  item.tokenQuota.details?.length ? 'w-56' : 'w-full'
                 ]"
               >
-                <!-- 圆形仪表盘 (放大为 110px) -->
+                <!-- 圆形仪表盘 -->
                 <div class="relative w-[110px] h-[110px] flex items-center justify-center shrink-0">
                   <a-progress
                     type="dashboard"
-                    :percent="item.tokenPlaneQuota.remainingPercentage"
+                    :percent="item.tokenQuota.remainingPercentage"
                     :size="110"
                     :stroke-width="10"
                     :stroke-color="item.provider === 'google-antigravity' ? { '0%': '#818cf8', '100%': '#4f46e5' } : { '0%': '#34d399', '100%': '#059669' }"
@@ -360,37 +368,37 @@ onMounted(() => {
                   <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                     <span class="text-[10px] text-slate-400 font-medium leading-none mb-1">剩余</span>
                     <span class="text-xl font-black font-mono tracking-tight text-slate-900 dark:text-white leading-none">
-                      {{ item.tokenPlaneQuota.remainingPercentage }}%
+                      {{ item.tokenQuota.remainingPercentage }}%
                     </span>
                   </div>
                 </div>
 
                 <!-- 倒计时 + 重置时刻（仪表盘下方） -->
                 <div class="space-y-1 text-center w-full">
-                  <div v-if="formatCountdown(item.tokenPlaneQuota.secondsRemaining)" class="flex items-center justify-center gap-1 text-xs">
+                  <div v-if="getCardSecondsRemaining(item.tokenQuota) > 0" class="flex items-center justify-center gap-1 text-xs">
                     <Clock class="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                    <span class="font-mono font-bold text-indigo-600 dark:text-indigo-400">{{ formatCountdown(item.tokenPlaneQuota.secondsRemaining) }}</span>
+                    <span class="font-mono font-bold text-indigo-600 dark:text-indigo-400">{{ formatCountdown(getCardSecondsRemaining(item.tokenQuota)) }}</span>
                   </div>
-                  <div v-if="item.tokenPlaneQuota.nextResetTime" class="flex items-center justify-center gap-1 text-xs">
+                  <div v-if="item.tokenQuota.nextResetTime" class="flex items-center justify-center gap-1 text-xs">
                     <Calendar class="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                    <span class="font-mono text-slate-500 dark:text-slate-400">{{ item.tokenPlaneQuota.nextResetTime }}</span>
+                    <span class="font-mono text-slate-500 dark:text-slate-400">{{ item.tokenQuota.nextResetTime }}</span>
                   </div>
                 </div>
               </div>
 
-              <!-- 竖向分隔线 (仅当有 details 时) -->
+              <!-- 竖向分隔线 -->
               <div
-                v-if="item.tokenPlaneQuota.details?.length"
+                v-if="item.tokenQuota.details?.length"
                 class="shrink-0 w-px bg-slate-200 dark:bg-zinc-700/80 self-stretch my-1"
               />
 
-              <!-- 右列：details 分组 (占满剩余宽度的 flex-1) -->
+              <!-- 右列：details 分组 -->
               <div
-                v-if="item.tokenPlaneQuota.details?.length"
+                v-if="item.tokenQuota.details?.length"
                 class="flex-1 min-w-0 space-y-3 pl-1"
               >
                 <div
-                  v-for="(groupItems, groupName) in groupQuotaDetails(item.tokenPlaneQuota.details)"
+                  v-for="(groupItems, groupName) in groupQuotaDetails(item.tokenQuota.details)"
                   :key="groupName"
                   class="space-y-1.5"
                 >
@@ -402,7 +410,7 @@ onMounted(() => {
                     {{ groupName }}
                   </div>
 
-                  <!-- 该分组下的算力桶列表 -->
+                  <!-- 算力桶列表 -->
                   <div class="space-y-1.5">
                     <div
                       v-for="detail in groupItems"
@@ -412,7 +420,7 @@ onMounted(() => {
                       <div class="flex items-center justify-between text-xs gap-2">
                         <span class="font-medium text-slate-700 dark:text-slate-300 truncate">
                           {{ detail.name }}
-                          <span v-if="detail.secondsRemaining > 0" class="font-normal font-mono text-[10px] text-slate-400 dark:text-slate-500 ml-0.5">（{{ formatCountdown(detail.secondsRemaining) }}）</span>
+                          <span v-if="getRemainingSecondsFromResetTime(detail.nextResetTime, detail.secondsRemaining) > 0" class="font-normal font-mono text-[10px] text-slate-400 dark:text-slate-500 ml-0.5">（{{ formatCountdown(getRemainingSecondsFromResetTime(detail.nextResetTime, detail.secondsRemaining)) }}）</span>
                         </span>
                         <span class="font-mono font-bold text-indigo-600 dark:text-indigo-400 shrink-0">{{ detail.remainingPercentage }}%</span>
                       </div>
@@ -429,18 +437,17 @@ onMounted(() => {
               </div>
             </div>
 
-            <!-- 未同步 / 探针未测试提示 -->
-            <div v-else-if="!item.tokenPlaneQuota" class="p-4 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-900/60 text-xs text-amber-700 dark:text-amber-400 flex items-center gap-2">
+            <!-- 未同步提示 -->
+            <div v-else-if="!item.tokenQuota" class="p-4 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-900/60 text-xs text-amber-700 dark:text-amber-400 flex items-center gap-2">
               <AlertCircle class="w-4 h-4 shrink-0" />
               <span>尚未获取上游配额数据，请点击下方【刷新配额】按钮进行测算</span>
             </div>
           </div>
         </template>
 
-        <!-- B. API Key 类型卡片渲染 (OpenAI / DeepSeek / Google / Generic) -->
+        <!-- B. API Key 类型卡片渲染 -->
         <template v-else>
           <div class="space-y-4">
-            <!-- 卡片头部: Key Icon + 名称 + 校验 Tag -->
             <div class="flex items-start justify-between gap-3">
               <div class="flex items-center gap-3.5">
                 <div class="w-11 h-11 rounded-2xl bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-100 dark:border-emerald-900 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
@@ -468,7 +475,6 @@ onMounted(() => {
               </a-tag>
             </div>
 
-            <!-- 详细配置: Endpoint -->
             <div class="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-zinc-800/50 border border-slate-100 dark:border-zinc-800 space-y-2 text-xs">
               <div v-if="item.baseUrl" class="flex items-center justify-between">
                 <span class="text-slate-400 flex items-center gap-1.5 font-medium">
@@ -481,7 +487,6 @@ onMounted(() => {
               </div>
             </div>
 
-            <!-- 探针性能与 Rate-Limit 响应面板 -->
             <div v-if="item.quotaInfo" class="pt-2 grid grid-cols-3 gap-2 text-center">
               <div class="p-2 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-100/60 dark:border-indigo-900/60">
                 <span class="text-[10px] font-semibold text-indigo-400 uppercase tracking-wider">剩余 RPM</span>
@@ -507,7 +512,7 @@ onMounted(() => {
           </div>
         </template>
 
-        <!-- 卡片底栏: 更新时间与操作按钮组 -->
+        <!-- 卡片底栏 -->
         <div class="mt-2 pt-2 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between">
           <span v-if="item.lastTestedAt" class="text-[11px] text-slate-400 font-mono">
             更新时间: {{ new Date(item.lastTestedAt).toLocaleTimeString() }}
@@ -563,7 +568,7 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- 添加 / 编辑 API 资源 Modal 弹窗 -->
+    <!-- Modal 弹窗 -->
     <a-modal
       v-model:open="isModalVisible"
       :title="isEditing ? '编辑 API 资源' : '新建 API 资源'"
@@ -580,7 +585,6 @@ onMounted(() => {
         layout="vertical"
         class="!pt-2"
       >
-        <!-- 资源大类 Tab: Token Plane vs API Key -->
         <a-form-item v-if="!isEditing" label="资源大类">
           <a-radio-group v-model:value="modalTab" button-style="solid" class="!w-full !flex">
             <a-radio-button value="token-plane" class="!flex-1 !text-center" @click="handleTabChange('token-plane')">
@@ -592,7 +596,6 @@ onMounted(() => {
           </a-radio-group>
         </a-form-item>
 
-        <!-- 服务提供商 (Provider) 下拉选择框 -->
         <a-form-item label="服务提供商 (Provider)" name="provider" required>
           <a-select
             v-model:value="formData.provider"
@@ -603,7 +606,6 @@ onMounted(() => {
           />
         </a-form-item>
 
-        <!-- 资源名称 -->
         <a-form-item label="资源名称" name="name" required>
           <a-input
             v-model:value="formData.name"
@@ -611,9 +613,6 @@ onMounted(() => {
           />
         </a-form-item>
 
-
-
-        <!-- Token Plane 专属: 邮箱、Refresh Token 与 Access Token -->
         <template v-if="modalTab === 'token-plane'">
           <a-form-item label="账号邮箱 (Email)" name="email">
             <a-input
@@ -637,7 +636,6 @@ onMounted(() => {
           </a-form-item>
         </template>
 
-        <!-- API Key 专属: API Key 密钥 -->
         <template v-else>
           <a-form-item label="API Key 密钥" name="apiKey" required>
             <a-input-password
@@ -647,7 +645,6 @@ onMounted(() => {
           </a-form-item>
         </template>
 
-        <!-- Base URL -->
         <a-form-item label="接口 Base URL" name="baseUrl" required>
           <a-input
             v-model:value="formData.baseUrl"
