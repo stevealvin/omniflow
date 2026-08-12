@@ -263,7 +263,7 @@ onMounted(() => {
 
     <!-- 加载中状态 -->
     <div v-if="quotaStore.loading" class="py-20 text-center bg-white dark:bg-zinc-900 rounded-3xl border border-slate-200 dark:border-zinc-800">
-      <a-spin tip="正在加载 API 资源与配额数据..." />
+      <a-spin description="正在加载 API 资源与配额数据..." />
     </div>
 
     <!-- 暂无数据空状态 -->
@@ -332,41 +332,41 @@ onMounted(() => {
               </div>
             </div>
 
-            <!-- 配额主体区：如果有 details 则左右各 50% 分栏；如果没有 details 则居中显示 -->
+            <!-- 配额主体区：左列（圆形仪表+文字，固定宽度）/ 右列（details 伸展占满剩余宽度） -->
             <div
               v-if="item.tokenPlaneQuota"
               :class="[
-                'flex items-center gap-4 min-w-0 py-1',
+                'flex items-center gap-5 min-w-0 py-1',
                 item.tokenPlaneQuota.details?.length ? 'justify-between' : 'justify-center'
               ]"
             >
-              <!-- 左列：圆形仪表盘 + 倒计时 + 重置时刻 -->
+              <!-- 左列：圆形仪表盘 + 倒计时 + 重置时刻 (较宽区域 224px，居中) -->
               <div
                 :class="[
-                  'flex flex-col items-center justify-center gap-1.5',
-                  item.tokenPlaneQuota.details?.length ? 'w-1/2 flex-1 min-w-0' : 'w-full'
+                  'flex flex-col items-center justify-center gap-2 shrink-0',
+                  item.tokenPlaneQuota.details?.length ? 'w-56' : 'w-full'
                 ]"
               >
-                <!-- 圆形仪表盘 -->
-                <div class="relative w-[88px] h-[88px] flex items-center justify-center shrink-0">
+                <!-- 圆形仪表盘 (放大为 110px) -->
+                <div class="relative w-[110px] h-[110px] flex items-center justify-center shrink-0">
                   <a-progress
                     type="dashboard"
                     :percent="item.tokenPlaneQuota.remainingPercentage"
-                    :size="88"
-                    :stroke-width="9"
+                    :size="110"
+                    :stroke-width="10"
                     :stroke-color="item.provider === 'google-antigravity' ? { '0%': '#818cf8', '100%': '#4f46e5' } : { '0%': '#34d399', '100%': '#059669' }"
                     :show-info="false"
                   />
                   <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <span class="text-[9px] text-slate-400 font-medium leading-none mb-0.5">剩余</span>
-                    <span class="text-lg font-black font-mono tracking-tight text-slate-900 dark:text-white leading-none">
+                    <span class="text-[10px] text-slate-400 font-medium leading-none mb-1">剩余</span>
+                    <span class="text-xl font-black font-mono tracking-tight text-slate-900 dark:text-white leading-none">
                       {{ item.tokenPlaneQuota.remainingPercentage }}%
                     </span>
                   </div>
                 </div>
 
                 <!-- 倒计时 + 重置时刻（仪表盘下方） -->
-                <div class="space-y-0.5 text-center w-full">
+                <div class="space-y-1 text-center w-full">
                   <div v-if="formatCountdown(item.tokenPlaneQuota.secondsRemaining)" class="flex items-center justify-center gap-1 text-xs">
                     <Clock class="w-3.5 h-3.5 text-indigo-400 shrink-0" />
                     <span class="font-mono font-bold text-indigo-600 dark:text-indigo-400">{{ formatCountdown(item.tokenPlaneQuota.secondsRemaining) }}</span>
@@ -384,15 +384,15 @@ onMounted(() => {
                 class="shrink-0 w-px bg-slate-200 dark:bg-zinc-700/80 self-stretch my-1"
               />
 
-              <!-- 右列：details 分组 (占 50% 空间) -->
+              <!-- 右列：details 分组 (占满剩余宽度的 flex-1) -->
               <div
                 v-if="item.tokenPlaneQuota.details?.length"
-                class="w-1/2 flex-1 min-w-0 space-y-2"
+                class="flex-1 min-w-0 space-y-3 pl-1"
               >
                 <div
                   v-for="(groupItems, groupName) in groupQuotaDetails(item.tokenPlaneQuota.details)"
                   :key="groupName"
-                  class="space-y-1"
+                  class="space-y-1.5"
                 >
                   <!-- 分组标题 -->
                   <div class="flex items-center gap-1 text-xs font-extrabold text-slate-600 dark:text-slate-300 tracking-wide">
@@ -403,20 +403,20 @@ onMounted(() => {
                   </div>
 
                   <!-- 该分组下的算力桶列表 -->
-                  <div class="space-y-1">
+                  <div class="space-y-1.5">
                     <div
                       v-for="detail in groupItems"
                       :key="detail.name"
-                      class="space-y-0.5"
+                      class="space-y-1"
                     >
-                      <div class="flex items-center justify-between text-xs">
+                      <div class="flex items-center justify-between text-xs gap-2">
                         <span class="font-medium text-slate-700 dark:text-slate-300 truncate">
                           {{ detail.name }}
-                          <span v-if="detail.secondsRemaining > 0" class="font-normal font-mono text-slate-400 dark:text-slate-500">（{{ formatCountdown(detail.secondsRemaining) }}）</span>
+                          <span v-if="detail.secondsRemaining > 0" class="font-normal font-mono text-[10px] text-slate-400 dark:text-slate-500 ml-0.5">（{{ formatCountdown(detail.secondsRemaining) }}）</span>
                         </span>
-                        <span class="font-mono font-bold text-indigo-600 dark:text-indigo-400 shrink-0 ml-1">{{ detail.remainingPercentage }}%</span>
+                        <span class="font-mono font-bold text-indigo-600 dark:text-indigo-400 shrink-0">{{ detail.remainingPercentage }}%</span>
                       </div>
-                      <div class="w-full h-1 rounded-full bg-slate-200/60 dark:bg-zinc-800 overflow-hidden">
+                      <div class="w-full h-1.5 rounded-full bg-slate-200/60 dark:bg-zinc-800 overflow-hidden">
                         <div
                           class="h-full rounded-full transition-all duration-500"
                           :class="detail.remainingPercentage > 50 ? 'bg-emerald-500' : detail.remainingPercentage > 15 ? 'bg-amber-500' : 'bg-rose-500'"
