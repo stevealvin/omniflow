@@ -16,9 +16,9 @@ const router = createRouter({
         },
         {
           path: 'quota',
-          name: 'KeyQuotaManager',
-          component: () => import('@/views/KeyQuotaManager.vue'),
-          meta: { title: 'AI 配额监控' }
+          name: 'QuotaConsole',
+          component: () => import('@/views/QuotaConsole.vue'),
+          meta: { title: 'AI 算力控制中心' }
         },
         {
           path: 'watch-simulator',

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useQuotaStore, type ApiKeyConfig, type QuotaDetailItem } from '@/stores/quota'
+import { useQuotaStore, type ApiKeyConfig, type QuotaDetailItem, type TokenPlaneQuota } from '@/stores/quota'
 import {
   Zap,
   Clock,
@@ -21,6 +21,7 @@ import {
   Bot,
   ArrowUpRight
 } from '@lucide/vue'
+import dayjs from 'dayjs'
 
 const router = useRouter()
 const quotaStore = useQuotaStore()
@@ -42,8 +43,6 @@ const formatCountdown = (totalSeconds?: number) => {
   return parts.join(' ')
 }
 
-import dayjs from 'dayjs'
-
 /**
  * 从 nextResetTime 时间字符串 (如 "2026-08-19 08:49:03") 动态计算剩余秒数
  */
@@ -63,8 +62,8 @@ const getCardSecondsRemaining = (quota?: TokenPlaneQuota) => {
 
   if (quota.details?.length) {
     const validSecs = quota.details
-      .map((d) => getRemainingSecondsFromResetTime(d.nextResetTime, d.secondsRemaining))
-      .filter((s) => s > 0)
+      .map((d: QuotaDetailItem) => getRemainingSecondsFromResetTime(d.nextResetTime, d.secondsRemaining))
+      .filter((s: number) => s > 0)
     if (validSecs.length) return Math.min(...validSecs)
   }
   return 0

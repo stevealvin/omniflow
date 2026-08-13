@@ -16,9 +16,47 @@ import {
   Clock,
   Sparkles,
   Calendar,
+  Search,
+  Server,
+  ShieldCheck
 } from '@lucide/vue'
 
 const quotaStore = useQuotaStore()
+
+// 搜索与过滤控制
+const searchQuery = ref('')
+const filterType = ref<'all' | 'token-plane' | 'api-key'>('all')
+const filterProvider = ref<string>('all')
+
+// 统计维度快照
+const stats = computed(() => {
+  const total = quotaStore.keys.length
+  const tokenPlaneCount = quotaStore.keys.filter((k) => k.type === 'token-plane').length
+  const apiKeyCount = quotaStore.keys.filter((k) => k.type === 'api-key').length
+  const healthyCount = quotaStore.keys.filter((k) => k.status === 'active').length
+  return { total, tokenPlaneCount, apiKeyCount, healthyCount }
+})
+
+// 过滤筛选后的 Key 列表
+const filteredKeys = computed(() => {
+  return quotaStore.keys.filter((item) => {
+    if (filterType.value !== 'all' && item.type !== filterType.value) {
+      return false
+    }
+    if (filterProvider.value !== 'all' && item.provider !== filterProvider.value) {
+      return false
+    }
+    if (searchQuery.value.trim()) {
+      const q = searchQuery.value.trim().toLowerCase()
+      const matchName = item.name.toLowerCase().includes(q)
+      const matchEmail = (item.email || '').toLowerCase().includes(q)
+      const matchProvider = (item.provider || '').toLowerCase().includes(q)
+      const matchBaseUrl = (item.baseUrl || '').toLowerCase().includes(q)
+      return matchName || matchEmail || matchProvider || matchBaseUrl
+    }
+    return true
+  })
+})
 
 // 模态框与提交状态控制
 const isModalVisible = ref(false)
@@ -233,69 +271,183 @@ onMounted(() => {
 
 <template>
   <div class="space-y-6">
-    <!-- 顶栏与控制台 Banner -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-zinc-800">
-      <div class="space-y-1">
-        <div class="flex items-center gap-2.5">
-          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
-            <Key class="w-3.5 h-3.5 text-indigo-500" />
-            API 密钥与算力控制台
-          </span>
-          <span class="text-xs font-medium text-slate-500 dark:text-slate-400 hidden md:inline">
-            全盘管控 Token Plane 托管账号与 API Key 算力配额
-          </span>
+    <!-- 1. 顶栏控制台 Banner (Apple Translucent Chrome Material + Specular Top Edge) -->
+    <div class="rounded-3xl border border-slate-200/70 dark:border-zinc-800/80 bg-white/70 dark:bg-zinc-900/70 backdrop-blur-2xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)] border-t border-t-white/80 dark:border-t-white/10 space-y-4">
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <!-- 标题与状态提示 (Optical Sizing & Negative Tracking) -->
+        <div class="space-y-1">
+          <div class="flex items-center gap-2.5">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-50/90 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 border border-indigo-200/80 dark:border-indigo-800/80 shadow-2xs">
+              <Key class="w-3.5 h-3.5 text-indigo-500" />
+              AI 算力控制中心
+            </span>
+            <span class="text-xs font-medium text-slate-500 dark:text-slate-400 hidden md:inline">
+              全盘管控 Token Plane 托管账号与 API Key 算力配额
+            </span>
+          </div>
+          <h1 class="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+            算力节点与配额管理
+          </h1>
         </div>
-        <p class="text-xs text-slate-500 dark:text-slate-400 md:hidden">
-          全盘管控 Token Plane 托管账号与 API Key 算力配额
-        </p>
+
+        <!-- 顶部主操作按钮 (Apple Instant Press Feedback) -->
+        <div class="flex items-center gap-2.5 shrink-0">
+          <a-button
+            type="default"
+            :loading="quotaStore.checkingAll"
+            @click="quotaStore.checkAllKeys"
+            class="inline-flex items-center gap-1.5 font-semibold rounded-2xl text-xs !h-10 !px-4 hover:!border-indigo-400 dark:hover:!border-indigo-500 active:scale-[0.98] transition-all duration-100 ease-out"
+          >
+            <template #icon>
+              <RefreshCw class="w-4 h-4 text-indigo-500" />
+            </template>
+            一键全盘探测/刷新
+          </a-button>
+
+          <a-button
+            type="primary"
+            @click="openAddModal"
+            class="inline-flex items-center gap-1.5 font-bold rounded-2xl text-xs !h-10 !px-4 !bg-gradient-to-r !from-indigo-600 !to-indigo-500 hover:!from-indigo-500 hover:!to-indigo-400 shadow-md shadow-indigo-500/20 border-0 active:scale-[0.98] transition-all duration-100 ease-out"
+          >
+            <template #icon>
+              <Plus class="w-4 h-4" />
+            </template>
+            新建 API 资源
+          </a-button>
+        </div>
       </div>
 
-      <div class="flex items-center gap-3">
-        <a-button
-          type="default"
-          :loading="quotaStore.checkingAll"
-          @click="quotaStore.checkAllKeys"
-          class="inline-flex items-center gap-1.5 font-medium rounded-xl text-xs !h-9"
-        >
-          <template #icon>
-            <RefreshCw class="w-3.5 h-3.5 text-indigo-500" />
-          </template>
-          一键探测/刷新所有额度
-        </a-button>
+      <!-- 2. 数据快照统计指标行 (Apple Translucent Materials & Depth) -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+        <div class="p-3 rounded-2xl bg-slate-100/60 dark:bg-zinc-800/40 border border-slate-200/50 dark:border-zinc-700/50 backdrop-blur-md flex items-center justify-between transition-all duration-200 hover:border-indigo-300/50">
+          <div class="space-y-0.5">
+            <span class="text-[11px] text-slate-400 font-medium">配置资源总数</span>
+            <div class="text-lg font-black font-mono tracking-tight text-slate-900 dark:text-white">{{ stats.total }}</div>
+          </div>
+          <div class="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-100 dark:border-indigo-900/60 flex items-center justify-center text-indigo-500 shrink-0 shadow-2xs">
+            <Server class="w-4 h-4" />
+          </div>
+        </div>
 
-        <a-button
-          type="primary"
-          @click="openAddModal"
-          class="inline-flex items-center gap-1.5 font-semibold rounded-xl text-xs !h-9 !bg-indigo-600 hover:!bg-indigo-500"
-        >
-          <template #icon>
-            <Plus class="w-4 h-4" />
-          </template>
-          新建 API 资源
-        </a-button>
+        <div class="p-3 rounded-2xl bg-slate-100/60 dark:bg-zinc-800/40 border border-slate-200/50 dark:border-zinc-700/50 backdrop-blur-md flex items-center justify-between transition-all duration-200 hover:border-purple-300/50">
+          <div class="space-y-0.5">
+            <span class="text-[11px] text-slate-400 font-medium">Token Plane 托管</span>
+            <div class="text-lg font-black font-mono tracking-tight text-indigo-600 dark:text-indigo-400">{{ stats.tokenPlaneCount }}</div>
+          </div>
+          <div class="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-950/60 border border-purple-100 dark:border-purple-900/60 flex items-center justify-center text-purple-500 shrink-0 shadow-2xs">
+            <Zap class="w-4 h-4" />
+          </div>
+        </div>
+
+        <div class="p-3 rounded-2xl bg-slate-100/60 dark:bg-zinc-800/40 border border-slate-200/50 dark:border-zinc-700/50 backdrop-blur-md flex items-center justify-between transition-all duration-200 hover:border-emerald-300/50">
+          <div class="space-y-0.5">
+            <span class="text-[11px] text-slate-400 font-medium">API Key 密钥</span>
+            <div class="text-lg font-black font-mono tracking-tight text-emerald-600 dark:text-emerald-400">{{ stats.apiKeyCount }}</div>
+          </div>
+          <div class="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-100 dark:border-emerald-900/60 flex items-center justify-center text-emerald-500 shrink-0 shadow-2xs">
+            <Key class="w-4 h-4" />
+          </div>
+        </div>
+
+        <div class="p-3 rounded-2xl bg-slate-100/60 dark:bg-zinc-800/40 border border-slate-200/50 dark:border-zinc-700/50 backdrop-blur-md flex items-center justify-between transition-all duration-200 hover:border-sky-300/50">
+          <div class="space-y-0.5">
+            <span class="text-[11px] text-slate-400 font-medium">探针正常状态</span>
+            <div class="text-lg font-black font-mono tracking-tight text-sky-600 dark:text-sky-400">{{ stats.healthyCount }}</div>
+          </div>
+          <div class="w-8 h-8 rounded-xl bg-sky-50 dark:bg-sky-950/60 border border-sky-100 dark:border-sky-900/60 flex items-center justify-center text-sky-500 shrink-0 shadow-2xs">
+            <ShieldCheck class="w-4 h-4" />
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. 搜索与分栏筛选工具栏 (Apple iOS Segmented Control) -->
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1 border-t border-slate-100 dark:border-zinc-800/80">
+        <!-- Segmented Tab Picker -->
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+          <div class="p-1 rounded-2xl bg-slate-200/50 dark:bg-zinc-800/60 backdrop-blur-md border border-black/5 dark:border-white/5 flex items-center gap-1 text-xs">
+            <button
+              @click="filterType = 'all'"
+              :class="[
+                'px-3.5 py-1.5 rounded-xl font-bold transition-all duration-200 active:scale-[0.97]',
+                filterType === 'all'
+                  ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-[0_2px_8px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.4)]'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              ]"
+            >
+              全部资源 ({{ stats.total }})
+            </button>
+            <button
+              @click="filterType = 'token-plane'"
+              :class="[
+                'px-3.5 py-1.5 rounded-xl font-bold transition-all duration-200 active:scale-[0.97]',
+                filterType === 'token-plane'
+                  ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-[0_2px_8px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.4)]'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              ]"
+            >
+              Token Plane ({{ stats.tokenPlaneCount }})
+            </button>
+            <button
+              @click="filterType = 'api-key'"
+              :class="[
+                'px-3.5 py-1.5 rounded-xl font-bold transition-all duration-200 active:scale-[0.97]',
+                filterType === 'api-key'
+                  ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-[0_2px_8px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.4)]'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              ]"
+            >
+              API Key ({{ stats.apiKeyCount }})
+            </button>
+          </div>
+        </div>
+
+        <!-- 右侧搜索框与 Provider 下拉过滤 (Apple Glass Inputs) -->
+        <div class="flex items-center gap-2.5 w-full sm:w-auto">
+          <div class="relative flex-1 sm:w-64">
+            <Search class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              v-model="searchQuery"
+              type="text"
+              placeholder="搜索名称 / 邮箱 / Provider..."
+              class="w-full pl-9 pr-3 py-1.5 rounded-xl text-xs bg-slate-100/80 dark:bg-zinc-800/60 border border-slate-200/50 dark:border-zinc-700/50 focus:border-indigo-400 focus:bg-white dark:focus:bg-zinc-900 text-slate-800 dark:text-slate-200 outline-none transition-all"
+            />
+          </div>
+
+          <select
+            v-model="filterProvider"
+            class="px-3 py-1.5 rounded-xl text-xs bg-slate-100/80 dark:bg-zinc-800/60 border border-slate-200/50 dark:border-zinc-700/50 text-slate-700 dark:text-slate-300 outline-none cursor-pointer focus:border-indigo-400"
+          >
+            <option value="all">全部 Provider</option>
+            <option value="google-antigravity">Google Antigravity</option>
+            <option value="openai-codex">OpenAI Codex</option>
+            <option value="openai-compatible">OpenAI Compatible</option>
+            <option value="google-aistudio">Google AI Studio</option>
+            <option value="generic">Generic 通用</option>
+          </select>
+        </div>
       </div>
     </div>
 
     <!-- 加载中状态 -->
-    <div v-if="quotaStore.loading" class="py-20 text-center bg-white dark:bg-zinc-900 rounded-3xl border border-slate-200 dark:border-zinc-800">
+    <div v-if="quotaStore.loading" class="py-20 text-center bg-white/70 dark:bg-zinc-900/70 backdrop-blur-2xl rounded-3xl border border-slate-200/70 dark:border-zinc-800/70 shadow-sm">
       <a-spin description="正在加载 API 资源与配额数据..." />
     </div>
 
     <!-- 暂无数据空状态 -->
-    <div v-else-if="quotaStore.keys.length === 0" class="py-20 bg-white dark:bg-zinc-900 rounded-3xl border border-slate-200 dark:border-zinc-800 p-8 text-center">
-      <a-empty description="暂无配置记录">
-        <a-button type="primary" @click="openAddModal" class="!mt-3 !bg-indigo-600 hover:!bg-indigo-500 !rounded-xl">
+    <div v-else-if="filteredKeys.length === 0" class="py-20 bg-white/70 dark:bg-zinc-900/70 backdrop-blur-2xl rounded-3xl border border-slate-200/70 dark:border-zinc-800/70 p-8 text-center shadow-sm">
+      <a-empty :description="searchQuery || filterType !== 'all' || filterProvider !== 'all' ? '未找到符合条件的 API 资源记录' : '暂无配置记录'">
+        <a-button type="primary" @click="openAddModal" class="!mt-3 !bg-indigo-600 hover:!bg-indigo-500 !rounded-xl active:scale-[0.98]">
           新建 API 资源
         </a-button>
       </a-empty>
     </div>
 
-    <!-- 扁平卡片 Grid -->
+    <!-- 扁平卡片 Grid (保留卡片内部元素 100% 不变，升级 Apple Depth 边框与 Ambient Glow 阴影) -->
     <div v-else class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div
-        v-for="item in quotaStore.keys"
+        v-for="item in filteredKeys"
         :key="item.id"
-        class="rounded-3xl border border-slate-200/80 dark:border-zinc-800/80 bg-white/95 dark:bg-zinc-900/95 shadow-sm hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 backdrop-blur-md overflow-hidden flex flex-col justify-between p-4 space-y-3"
+        class="rounded-3xl border border-slate-200/70 dark:border-zinc-800/80 bg-white/95 dark:bg-zinc-900/95 shadow-[0_8px_30px_rgba(0,0,0,0.03)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.25)] hover:shadow-[0_16px_40px_rgba(79,70,229,0.12)] dark:hover:shadow-[0_16px_40px_rgba(79,70,229,0.08)] hover:border-indigo-300/80 dark:hover:border-indigo-700/80 hover:-translate-y-1 transition-all duration-300 ease-out backdrop-blur-md overflow-hidden flex flex-col justify-between p-4 space-y-3"
       >
         <!-- A. Token Plane 类型卡片渲染 (Antigravity & Codex) -->
         <template v-if="item.type === 'token-plane'">

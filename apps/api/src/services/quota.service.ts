@@ -17,9 +17,7 @@ const toConfig = (r: any): ApiKeyConfig => ({
   email: r.email,
   status: r.status,
   lastTestedAt: r.last_tested_at,
-  tokenQuota: r.token_quota,
-  quotaInfo: r.quota_info,
-  rawQuotaData: r.raw_quota_data
+  tokenQuota: r.token_quota
 })
 
 /**
@@ -37,9 +35,7 @@ const toDb = (c: Partial<ApiKeyConfig>) => ({
   email: c.email,
   status: c.status,
   last_tested_at: c.lastTestedAt,
-  token_quota: c.tokenQuota,
-  quota_info: c.quotaInfo,
-  raw_quota_data: c.rawQuotaData
+  token_quota: c.tokenQuota
 })
 
 let inMemoryStore: ApiKeyConfig[] = []
@@ -55,12 +51,15 @@ export const listQuotaConfigs = async (): Promise<ApiKeyConfig[]> => {
       .order('created_at', { ascending: false })
 
     if (error || !data) {
+      if (error) {
+        console.warn('[Supabase 读取提示]:', error.message)
+      }
       return inMemoryStore
     }
 
     return data.map(toConfig)
   } catch (err: any) {
-    console.warn('[Supabase 读取提示]', err.message)
+    console.warn('[Supabase 读取异常]:', err.message)
     return inMemoryStore
   }
 }
@@ -97,12 +96,22 @@ export const addQuotaConfig = async (payload: Omit<ApiKeyConfig, 'id' | 'status'
       .insert([dbPayload])
       .select('*')
 
+    if (error) {
+      console.error('[Supabase 插入数据库失败]:', error.message, error.details)
+    }
+
     if (error || !data || data.length === 0) {
       inMemoryStore.unshift(newKey)
       return newKey
     }
 
-    return toConfig(data[0])
+    const inserted = {
+      ...toConfig(data[0]),
+      quotaInfo: fetchResult.quotaInfo,
+      rawQuotaData: fetchResult.rawQuotaData
+    }
+    inMemoryStore.unshift(inserted)
+    return inserted
   } catch (err: any) {
     console.error('[Supabase 写入异常]:', err.message)
     inMemoryStore.unshift(newKey)
@@ -116,13 +125,20 @@ export const addQuotaConfig = async (payload: Omit<ApiKeyConfig, 'id' | 'status'
 export const updateQuotaConfig = async (id: string, payload: Partial<ApiKeyConfig>): Promise<ApiKeyConfig | null> => {
   try {
     const dbPayload = toDb(payload)
+    delete dbPayload.id
+
     const { data, error } = await supabase
       .from('api_key_configs')
       .update(dbPayload)
       .eq('id', id)
       .select('*')
 
+    if (error) {
+      console.error(`[Supabase 数据库更新失败 id=${id}]:`, error.message, error.details, error.hint)
+    }
+
     if (error || !data || data.length === 0) {
+      console.warn(`[Supabase 未更新成功，回退内存更新 id=${id}]`)
       const idx = inMemoryStore.findIndex((k) => k.id === id)
       if (idx !== -1) {
         inMemoryStore[idx] = { ...inMemoryStore[idx], ...payload }
@@ -131,8 +147,14 @@ export const updateQuotaConfig = async (id: string, payload: Partial<ApiKeyConfi
       return null
     }
 
-    return toConfig(data[0])
+    const updatedConfig = toConfig(data[0])
+    const idx = inMemoryStore.findIndex((k) => k.id === id)
+    if (idx !== -1) {
+      inMemoryStore[idx] = { ...updatedConfig, ...payload }
+    }
+    return { ...updatedConfig, ...payload }
   } catch (err: any) {
+    console.error(`[Supabase 数据库更新异常 id=${id}]:`, err.message)
     const idx = inMemoryStore.findIndex((k) => k.id === id)
     if (idx !== -1) {
       inMemoryStore[idx] = { ...inMemoryStore[idx], ...payload }
@@ -147,10 +169,14 @@ export const updateQuotaConfig = async (id: string, payload: Partial<ApiKeyConfi
  */
 export const deleteQuotaConfig = async (id: string): Promise<boolean> => {
   try {
-    await supabase
+    const { error } = await supabase
       .from('api_key_configs')
       .delete()
       .eq('id', id)
+
+    if (error) {
+      console.error(`[Supabase 删除数据库记录失败 id=${id}]:`, error.message)
+    }
   } catch (err: any) {
     console.error('[Supabase 删除异常]:', err.message)
   }
@@ -160,14 +186,13 @@ export const deleteQuotaConfig = async (id: string): Promise<boolean> => {
 }
 
 /**
- * 探针与配额刷新引擎（调用独立 Provider 策略）
+ * 探针与配额刷新引擎（调用独立 Provider 策略并更新至数据库）
  */
 export const probeQuotaConfig = async (config: ApiKeyConfig): Promise<ApiKeyConfig> => {
   const provider = QuotaProviderFactory.getProvider(config.provider)
   const result = await provider.fetchQuota(config)
 
-  const updated: ApiKeyConfig = {
-    ...config,
+  const updatePayload: Partial<ApiKeyConfig> = {
     status: result.status,
     lastTestedAt: result.lastTestedAt,
     tokenQuota: result.tokenQuota,
@@ -175,8 +200,8 @@ export const probeQuotaConfig = async (config: ApiKeyConfig): Promise<ApiKeyConf
     rawQuotaData: result.rawQuotaData
   }
 
-  await updateQuotaConfig(config.id, updated)
-  return updated
+  const updated = await updateQuotaConfig(config.id, updatePayload)
+  return updated || { ...config, ...updatePayload }
 }
 
 /**

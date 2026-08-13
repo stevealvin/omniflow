@@ -10,8 +10,8 @@ const lastSyncTime = ref(new Date().toLocaleTimeString())
 const agKey = computed(() => quotaStore.keys.find((k) => k.provider === 'google-antigravity'))
 const codexKey = computed(() => quotaStore.keys.find((k) => k.provider === 'openai-codex'))
 
-const agRemaining = computed(() => agKey.value?.tokenPlaneQuota?.remainingPercentage ?? 100)
-const codexRemaining = computed(() => codexKey.value?.tokenPlaneQuota?.remainingPercentage ?? 100)
+const agRemaining = computed(() => agKey.value?.tokenQuota?.remainingPercentage ?? 100)
+const codexRemaining = computed(() => codexKey.value?.tokenQuota?.remainingPercentage ?? 100)
 
 const triggerWatchSync = async () => {
   isSyncing.value = true

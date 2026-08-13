@@ -62,7 +62,7 @@ export interface ApiKeyConfig {
 
   tokenQuota?: TokenPlaneQuota
   quotaInfo?: ApiKeyQuotaInfo
-  rawQuotaData?: any // 提升至根层级，避免混入 tokenQuota
+  rawQuotaData?: any
 }
 
 // 策略模式 Provider 执行返回数据结构
