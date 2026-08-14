@@ -1,5 +1,4 @@
 import { Hono } from 'hono'
-import { handle } from 'hono/vercel'
 import { corsMiddleware } from './middlewares/cors.js'
 import { loggerMiddleware } from './middlewares/logger.js'
 import { quotaRouter } from './routes/quota.js'
@@ -29,5 +28,4 @@ api.route('/', watchRouter)
 app.route('/api', api)
 app.route('/api/v1', api)
 
-// Vercel Serverless 适配导出
-export default handle(app)
+export default app
