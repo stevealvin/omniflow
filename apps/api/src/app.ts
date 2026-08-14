@@ -29,11 +29,5 @@ api.route('/', watchRouter)
 app.route('/api', api)
 app.route('/api/v1', api)
 
-// Vercel Serverless Function 处理器导出
-export const GET = handle(app)
-export const POST = handle(app)
-export const PUT = handle(app)
-export const DELETE = handle(app)
-export const PATCH = handle(app)
-export const OPTIONS = handle(app)
+// Vercel Serverless 适配导出
 export default handle(app)
