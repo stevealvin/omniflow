@@ -3,7 +3,7 @@
     <scroll class="scroll-container" scroll-y="true">
       <!-- 顶部导航 -->
       <div class="nav-bar">
-        <input class="back-btn" type="button" value="❮ 返回" onclick="goBack" />
+        <input class="back-btn" type="button" value="返回" onclick="goBack" />
         <text class="page-title">手表设置</text>
         <div class="nav-placeholder"></div>
       </div>
@@ -23,35 +23,21 @@
         <input
           class="test-btn {{isTesting ? 'btn-disabled' : ''}}"
           type="button"
-          value="{{isTesting ? '正在测试...' : '📡 测试网络连通性'}}"
+          value="{{isTesting ? '正在测试...' : '测试网络连通性'}}"
           onclick="testConnection"
         />
       </div>
 
-      <!-- 快速预设地址卡片 -->
+      <!-- 快捷预设地址卡片 -->
       <div class="card">
         <text class="card-label">快捷预设切换</text>
 
         <div class="preset-btn-list">
           <input
-            class="preset-item {{currentUrl === 'http://127.0.0.1:5100' ? 'preset-active' : ''}}"
+            class="preset-item {{currentUrl === 'https://nl-omniflow.vercel.app/api' ? 'preset-active' : ''}}"
             type="button"
-            value="本地环境 (127.0.0.1:5100)"
-            onclick="selectPreset('http://127.0.0.1:5100')"
-          />
-
-          <input
-            class="preset-item {{currentUrl === 'http://10.0.2.2:5100' ? 'preset-active' : ''}}"
-            type="button"
-            value="模拟器内网 (10.0.2.2:5100)"
-            onclick="selectPreset('http://10.0.2.2:5100')"
-          />
-
-          <input
-            class="preset-item {{currentUrl === 'http://192.168.1.100:5100' ? 'preset-active' : ''}}"
-            type="button"
-            value="局域网主机 (192.168.1.100:5100)"
-            onclick="selectPreset('http://192.168.1.100:5100')"
+            value="默认云端 (nl-omniflow.vercel.app)"
+            onclick="selectPreset('https://nl-omniflow.vercel.app/api')"
           />
         </div>
       </div>
@@ -62,7 +48,7 @@
         <input
           class="danger-btn"
           type="button"
-          value="🗑️ 清除本地额度缓存"
+          value="清除本地额度缓存"
           onclick="handleClearCache"
         />
       </div>
@@ -86,6 +72,7 @@ import fetch from '@system.fetch'
 import {
   getApiBaseUrl,
   setApiBaseUrl,
+  getFullEndpoint,
   DEFAULT_API_BASE_URL
 } from '../../common/api.js'
 import { clearStorage } from '../../common/storage.js'
@@ -118,7 +105,7 @@ export default {
     this.hasTested = false
 
     try {
-      prompt.showToast({ message: '已切换至 ' + url })
+      prompt.showToast({ message: '已切换' })
     } catch (e) {}
   },
 
@@ -132,7 +119,7 @@ export default {
     } catch (e) {}
 
     const startTime = Date.now()
-    const targetUrl = `${this.currentUrl}/api/watch/sync`
+    const targetUrl = getFullEndpoint(this.currentUrl, '/watch/sync')
 
     fetch.fetch({
       url: targetUrl,
@@ -143,18 +130,18 @@ export default {
         this.isTesting = false
         this.hasTested = true
         this.testSuccess = true
-        this.testMessage = `✅ 连接成功 (${latency}ms)`
+        this.testMessage = `连接成功 (${latency}ms)`
         try {
-          prompt.showToast({ message: '后端服务连接畅通' })
+          prompt.showToast({ message: '连接畅通' })
         } catch (e) {}
       },
       fail: (data, code) => {
         this.isTesting = false
         this.hasTested = true
         this.testSuccess = false
-        this.testMessage = `❌ 无法连接服务器 (错误码: ${code || 'fail'})`
+        this.testMessage = `无法连接服务器 (${code || 'fail'})`
         try {
-          prompt.showToast({ message: '无法连接指定 API' })
+          prompt.showToast({ message: '连接失败' })
         } catch (e) {}
       }
     })
@@ -169,7 +156,7 @@ export default {
     await setApiBaseUrl(this.currentUrl)
 
     try {
-      prompt.showToast({ message: '本地额度缓存已清空' })
+      prompt.showToast({ message: '缓存已清空' })
     } catch (e) {}
   },
 
@@ -193,7 +180,7 @@ export default {
 .scroll-container {
   flex-direction: column;
   width: 480px;
-  padding: 12px 18px 28px 18px;
+  padding: 16px 18px 36px 18px;
 }
 
 /* 顶部导航 */
@@ -201,68 +188,70 @@ export default {
   flex-direction: row;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
 .back-btn {
-  width: 90px;
-  height: 38px;
-  border-radius: 19px;
+  width: 100px;
+  height: 48px;
+  border-radius: 24px;
   background-color: #27272a;
-  color: #ffffff;
-  font-size: 16px;
-}
-
-.page-title {
   color: #ffffff;
   font-size: 20px;
   font-weight: bold;
 }
 
+.page-title {
+  color: #ffffff;
+  font-size: 26px;
+  font-weight: bold;
+}
+
 .nav-placeholder {
-  width: 90px;
+  width: 100px;
 }
 
 /* 卡片 */
 .card {
   flex-direction: column;
   background-color: #141416;
-  border-radius: 20px;
+  border-radius: 26px;
   border-width: 2px;
   border-color: #27272a;
-  padding: 16px 18px;
-  margin-bottom: 14px;
+  padding: 20px 22px;
+  margin-bottom: 18px;
 }
 
 .card-label {
   color: #a1a1aa;
-  font-size: 15px;
-  margin-bottom: 8px;
+  font-size: 19px;
+  font-weight: bold;
+  margin-bottom: 10px;
 }
 
 .card-url {
   color: #ffffff;
-  font-size: 17px;
+  font-size: 20px;
   font-weight: bold;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
 .test-result-box {
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .test-result-text {
-  font-size: 15px;
+  font-size: 18px;
   font-weight: bold;
 }
 
 .test-btn {
-  width: 400px;
-  height: 48px;
-  border-radius: 24px;
+  width: 396px;
+  height: 60px;
+  border-radius: 30px;
   background-color: #312e81;
   color: #c7d2fe;
-  font-size: 16px;
+  font-size: 22px;
   font-weight: bold;
 }
 
@@ -271,13 +260,13 @@ export default {
 }
 
 .preset-item {
-  width: 400px;
-  height: 46px;
-  border-radius: 23px;
+  width: 396px;
+  height: 58px;
+  border-radius: 29px;
   background-color: #27272a;
   color: #e4e4e7;
-  font-size: 14px;
-  margin-bottom: 8px;
+  font-size: 20px;
+  margin-bottom: 12px;
 }
 
 .preset-active {
@@ -287,12 +276,12 @@ export default {
 }
 
 .danger-btn {
-  width: 400px;
-  height: 48px;
-  border-radius: 24px;
+  width: 396px;
+  height: 60px;
+  border-radius: 30px;
   background-color: #881337;
   color: #fecdd3;
-  font-size: 16px;
+  font-size: 22px;
 }
 
 .btn-disabled {
@@ -304,22 +293,22 @@ export default {
   flex-direction: column;
   align-items: center;
   margin-top: 10px;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .about-text {
-  color: #71717a;
-  font-size: 14px;
+  color: #a1a1aa;
+  font-size: 18px;
 }
 
 .about-sub {
-  color: #52525b;
-  font-size: 12px;
-  margin-top: 4px;
+  color: #71717a;
+  font-size: 16px;
+  margin-top: 6px;
 }
 
 .bottom-spacer {
-  height: 24px;
+  height: 30px;
 }
 
 /* 颜色 */

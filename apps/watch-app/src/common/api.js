@@ -5,7 +5,22 @@ export const STORAGE_KEY_BASE_URL = 'omniflow_api_base_url'
 export const STORAGE_KEY_QUOTA_CACHE = 'omniflow_quota_cache'
 export const STORAGE_KEY_LAST_SYNC_TIME = 'omniflow_last_sync_time'
 
-export const DEFAULT_API_BASE_URL = 'http://127.0.0.1:5100'
+export const DEFAULT_API_BASE_URL = 'https://nl-omniflow.vercel.app/api'
+
+/**
+ * 格式化拼接完整的 API 路由地址（自适应处理 /api 前缀）
+ * @param {string} baseUrl
+ * @param {string} path 如 '/quota' 或 '/watch/sync'
+ * @returns {string}
+ */
+export function getFullEndpoint(baseUrl, path) {
+  const cleanBase = (baseUrl || DEFAULT_API_BASE_URL).trim().replace(/\/+$/, '')
+  const cleanPath = path.startsWith('/') ? path : `/${path}`
+  if (cleanBase.endsWith('/api')) {
+    return `${cleanBase}${cleanPath}`
+  }
+  return `${cleanBase}/api${cleanPath}`
+}
 
 /**
  * 获取当前配置的后端 API 地址
@@ -35,12 +50,12 @@ export async function setApiBaseUrl(url) {
  */
 export async function queryWatchQuota() {
   const baseUrl = await getApiBaseUrl()
-  const endpoint = `${baseUrl}/api/quota`
+  const endpoint = getFullEndpoint(baseUrl, '/quota')
 
   return new Promise((resolve) => {
     let hasResolved = false
 
-    // 5 秒超时保护，超时后回退真实本地缓存
+    // 12 秒超时保护（适应穿戴设备网络延迟与云端冷启动），超时后回退真实本地缓存
     const timeoutTimer = setTimeout(async () => {
       if (!hasResolved) {
         hasResolved = true
@@ -98,7 +113,7 @@ export async function queryWatchQuota() {
           // 缓存真实数据到本地存储
           const cacheObj = {
             keys: keysList,
-            updatedAt: resData.updatedAt || timeStr
+            updatedAt: resData?.updatedAt || timeStr
           }
           await setStorage(STORAGE_KEY_QUOTA_CACHE, cacheObj)
           await setStorage(STORAGE_KEY_LAST_SYNC_TIME, timeStr)
@@ -168,7 +183,7 @@ export async function queryWatchQuota() {
  */
 export async function checkSingleKey(id) {
   const baseUrl = await getApiBaseUrl()
-  const endpoint = `${baseUrl}/api/quota/${id}/check`
+  const endpoint = getFullEndpoint(baseUrl, `/quota/${id}/check`)
 
   return new Promise((resolve) => {
     fetch.fetch({
