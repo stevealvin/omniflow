@@ -16,7 +16,6 @@ import {
   Sparkles,
   Calendar,
   LayoutGrid,
-  Watch,
   Bell,
   Bot,
   ArrowUpRight
@@ -74,7 +73,7 @@ const groupQuotaDetails = (details?: QuotaDetailItem[]) => {
   if (!details || details.length === 0) return {}
   const groups: Record<string, QuotaDetailItem[]> = {}
   for (const item of details) {
-    const rawGroup = item.providerGroup || '算力池'
+    const rawGroup = item.providerGroup || '通用'
     if (!groups[rawGroup]) {
       groups[rawGroup] = []
     }
@@ -154,18 +153,8 @@ const myApps = [
     tag: '内核核心',
     tagClass: 'bg-indigo-50 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400 border-indigo-200/60 dark:border-indigo-800/60',
     icon: Bot,
-    iconBg: 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-indigo-500/20',
+    iconBg: 'bg-linear-to-br from-indigo-500 to-purple-600 text-white shadow-indigo-500/20',
     path: '/quota'
-  },
-  {
-    id: 'redmi-watch',
-    name: 'Redmi Watch 6 抬腕视角',
-    desc: '基于 Xiaomi Vela OS 穿戴设备视角，抬腕即刻离线/在线联动同步云端算力',
-    tag: '穿戴端联通',
-    tagClass: 'bg-amber-50 dark:bg-amber-950/70 text-amber-600 dark:text-amber-400 border-amber-200/60 dark:border-amber-800/60',
-    icon: Watch,
-    iconBg: 'bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-amber-500/20',
-    path: '/watch-simulator'
   },
   {
     id: 'app-hub',

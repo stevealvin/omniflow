@@ -6,7 +6,6 @@ import { useQuotaStore } from '@/stores/quota'
 import {
   Zap,
   Key,
-  Watch,
   Bell,
   LayoutGrid,
   Sun,
@@ -31,7 +30,6 @@ const toggleSidebar = () => {
 const menuItems = [
   { key: '/', title: '仪表数据大盘', icon: Zap },
   { key: '/quota', title: 'AI 算力控制中心', icon: Key },
-  { key: '/watch-simulator', title: 'Redmi Watch 6 模拟器', icon: Watch },
   { key: '/app-hub', title: '我的应用生态', icon: LayoutGrid }
 ]
 

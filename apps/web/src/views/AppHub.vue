@@ -42,7 +42,7 @@ const apps = ref<PersonalApp[]>([
     id: 'lenscraft',
     name: '镜头工坊',
     englishName: 'LensCraft',
-    url: 'https://nl-sc.vercel.app',
+    url: 'https://shotcraft.nle.lol',
     cover: '/covers/lenscraft-cover.svg',
     description: '输入剧本通过 AI 生成影视资产和分镜提示词',
     detailedDesc: '面向影视编导与视觉创作者的 AI 分镜工业化平台。深度解析剧本文本、角色动作与场景机位，一键批量输出专业级光影参数、视听语言设定与 Midjourney / Stable Diffusion 分镜提示词资产包。',
@@ -63,7 +63,7 @@ const apps = ref<PersonalApp[]>([
     id: 'huanbi',
     name: '幻笔 AI',
     englishName: 'HuanBi',
-    url: 'https://nl-ls.vercel.app',
+    url: 'https://storyforge.nle.lol',
     cover: '/covers/huanbi-cover.svg',
     description: '通过 AI 编写长篇小说、架构世界观与章节续写',
     detailedDesc: '专为网文作家与世界观设计师打造的百万字长篇小说创作引擎。支持复杂世界观设定、多卷主线剧情逻辑树与立体人物关系网，具备长上下文逻辑记忆，保障超长篇幅创作始终连贯。',
@@ -256,7 +256,7 @@ const copyUrl = (url: string) => {
         </div>
 
         <!-- 卡片底栏操作区 -->
-        <div class="p-5 pt-0 mt-2 border-t border-slate-100 dark:border-zinc-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div class="px-5 py-2.5 mt-auto border-t border-slate-100 dark:border-zinc-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           <!-- 网址展示与复制 -->
           <div class="flex items-center gap-2 min-w-0">
             <span class="text-xs font-mono font-bold text-slate-500 dark:text-slate-400 truncate max-w-[200px]" :title="app.url">
@@ -275,10 +275,10 @@ const copyUrl = (url: string) => {
           <a-button
             type="primary"
             @click="openApp(app.url)"
-            class="inline-flex items-center justify-center gap-1.5 font-bold rounded-2xl text-xs h-9! px-5! bg-linear-to-r! from-indigo-600! to-indigo-500! hover:from-indigo-500! hover:to-indigo-400! shadow-md shadow-indigo-500/20 border-0 active:scale-[0.98] transition-all duration-100 shrink-0"
+            class="inline-flex items-center justify-center gap-1.5 font-bold rounded-xl! text-[11px] h-8! px-3.5! bg-linear-to-r! from-indigo-600! to-indigo-500! hover:from-indigo-500! hover:to-indigo-400! shadow-xs shadow-indigo-500/20 border-0 active:scale-[0.98] transition-all duration-100 shrink-0"
           >
             立即开启应用
-            <ExternalLink class="w-3.5 h-3.5" />
+            <ExternalLink class="w-3 h-3" />
           </a-button>
         </div>
       </div>

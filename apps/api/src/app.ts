@@ -2,7 +2,6 @@ import { Hono } from 'hono'
 import { corsMiddleware } from './middlewares/cors.js'
 import { loggerMiddleware } from './middlewares/logger.js'
 import { quotaRouter } from './routes/quota.js'
-import { watchRouter } from './routes/watch.js'
 
 export const app = new Hono()
 
@@ -23,7 +22,6 @@ app.get('/', (c) => {
 // 路由模块挂载与组装 (/api)
 const api = new Hono()
 api.route('/', quotaRouter)
-api.route('/', watchRouter)
 
 app.route('/api', api)
 app.route('/api/v1', api)

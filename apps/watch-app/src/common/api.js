@@ -5,7 +5,7 @@ export const STORAGE_KEY_BASE_URL = 'omniflow_api_base_url'
 export const STORAGE_KEY_QUOTA_CACHE = 'omniflow_quota_cache'
 export const STORAGE_KEY_LAST_SYNC_TIME = 'omniflow_last_sync_time'
 
-export const DEFAULT_API_BASE_URL = 'https://nl-omniflow.vercel.app/api'
+export const DEFAULT_API_BASE_URL = 'https://om.nle.lol/api'
 
 /**
  * 格式化拼接完整的 API 路由地址（自适应处理 /api 前缀）
@@ -45,7 +45,31 @@ export async function setApiBaseUrl(url) {
 }
 
 /**
- * 发起网络请求获取真实算力配额列表（严格使用真实后端数据，无任何模拟数据）
+ * 统一回退读取本地持久化缓存
+ * @param {string} errorMsg
+ * @returns {Promise<{ success: boolean, keys: any[], isFromCache: boolean, updatedAt?: string, error?: string }>}
+ */
+async function getFallbackCache(errorMsg) {
+  const cached = await getStorage(STORAGE_KEY_QUOTA_CACHE, null)
+  if (cached && Array.isArray(cached.keys)) {
+    return {
+      success: true,
+      keys: cached.keys,
+      isFromCache: true,
+      updatedAt: cached.updatedAt,
+      error: `${errorMsg}，已展示本地缓存`
+    }
+  }
+  return {
+    success: false,
+    keys: [],
+    isFromCache: false,
+    error: errorMsg
+  }
+}
+
+/**
+ * 发起网络请求获取真实算力配额列表（严格使用真实后端数据）
  * @returns {Promise<{ success: boolean, keys: any[], isFromCache: boolean, updatedAt?: string, error?: string }>}
  */
 export async function queryWatchQuota() {
@@ -53,126 +77,104 @@ export async function queryWatchQuota() {
   const endpoint = getFullEndpoint(baseUrl, '/quota')
 
   return new Promise((resolve) => {
-    let hasResolved = false
-
-    // 12 秒超时保护（适应穿戴设备网络延迟与云端冷启动），超时后回退真实本地缓存
-    const timeoutTimer = setTimeout(async () => {
-      if (!hasResolved) {
-        hasResolved = true
-        const cached = await getStorage(STORAGE_KEY_QUOTA_CACHE, null)
-        if (cached && Array.isArray(cached.keys)) {
-          resolve({
-            success: true,
-            keys: cached.keys,
-            isFromCache: true,
-            updatedAt: cached.updatedAt,
-            error: '请求超时，已展示离线缓存'
-          })
-        } else {
-          resolve({
-            success: true,
-            keys: [],
-            isFromCache: false,
-            error: '请求超时，未能连接到后端'
-          })
+    fetch.fetch({
+      url: endpoint,
+      method: 'GET',
+      responseType: 'json',
+      timeout: 10000,
+      success: async function (response) {
+        let resData = response.data
+        if (typeof resData === 'string') {
+          try {
+            resData = JSON.parse(resData)
+          } catch (e) {}
         }
+
+        let keysList = []
+        if (resData && Array.isArray(resData.data)) {
+          keysList = resData.data
+        } else if (Array.isArray(resData)) {
+          keysList = resData
+        } else if (resData && Array.isArray(resData.keys)) {
+          keysList = resData.keys
+        }
+
+        const now = new Date()
+        const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
+
+        // 缓存真实数据到本地存储
+        const cacheObj = {
+          keys: keysList,
+          updatedAt: resData?.updatedAt || timeStr
+        }
+        await setStorage(STORAGE_KEY_QUOTA_CACHE, cacheObj)
+        await setStorage(STORAGE_KEY_LAST_SYNC_TIME, timeStr)
+
+        resolve({
+          success: true,
+          keys: keysList,
+          isFromCache: false,
+          updatedAt: timeStr
+        })
+      },
+      fail: async function (errData, code) {
+        resolve(await getFallbackCache(`连接失败 (${code || 'offline'})`))
       }
-    }, 5000)
+    })
+  })
+}
 
-    try {
-      fetch.fetch({
-        url: endpoint,
-        method: 'GET',
-        responseType: 'json',
-        success: async function (response) {
-          if (hasResolved) return
-          hasResolved = true
-          clearTimeout(timeoutTimer)
+/**
+ * 触发全盘所有 Key 探针与配额重测刷新 (POST /quota/check-all)
+ * @returns {Promise<{ success: boolean, keys: any[], isFromCache: boolean, updatedAt?: string, error?: string }>}
+ */
+export async function probeAllWatchQuota() {
+  const baseUrl = await getApiBaseUrl()
+  const endpoint = getFullEndpoint(baseUrl, '/quota/check-all')
 
-          let resData = response.data
-          if (typeof resData === 'string') {
-            try {
-              resData = JSON.parse(resData)
-            } catch (e) {
-              // 保持原数据
-            }
-          }
-
-          let keysList = []
-          if (resData && Array.isArray(resData.data)) {
-            keysList = resData.data
-          } else if (Array.isArray(resData)) {
-            keysList = resData
-          } else if (resData && Array.isArray(resData.keys)) {
-            keysList = resData.keys
-          }
-
-          const now = new Date()
-          const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
-
-          // 缓存真实数据到本地存储
-          const cacheObj = {
-            keys: keysList,
-            updatedAt: resData?.updatedAt || timeStr
-          }
-          await setStorage(STORAGE_KEY_QUOTA_CACHE, cacheObj)
-          await setStorage(STORAGE_KEY_LAST_SYNC_TIME, timeStr)
-
-          resolve({
-            success: true,
-            keys: keysList,
-            isFromCache: false,
-            updatedAt: timeStr
-          })
-        },
-        fail: async function (errData, code) {
-          if (hasResolved) return
-          hasResolved = true
-          clearTimeout(timeoutTimer)
-
-          const cached = await getStorage(STORAGE_KEY_QUOTA_CACHE, null)
-          if (cached && Array.isArray(cached.keys)) {
-            resolve({
-              success: true,
-              keys: cached.keys,
-              isFromCache: true,
-              updatedAt: cached.updatedAt,
-              error: `连接失败 (${code || 'offline'})，已展示离线缓存`
-            })
-          } else {
-            resolve({
-              success: false,
-              keys: [],
-              isFromCache: false,
-              error: `连接失败 (${code || 'offline'})`
-            })
-          }
+  return new Promise((resolve) => {
+    fetch.fetch({
+      url: endpoint,
+      method: 'POST',
+      responseType: 'json',
+      timeout: 15000,
+      success: async function (response) {
+        let resData = response.data
+        if (typeof resData === 'string') {
+          try {
+            resData = JSON.parse(resData)
+          } catch (e) {}
         }
-      })
-    } catch (e) {
-      if (hasResolved) return
-      hasResolved = true
-      clearTimeout(timeoutTimer)
 
-      getStorage(STORAGE_KEY_QUOTA_CACHE, null).then((cached) => {
-        if (cached && Array.isArray(cached.keys)) {
-          resolve({
-            success: true,
-            keys: cached.keys,
-            isFromCache: true,
-            updatedAt: cached.updatedAt,
-            error: '网络请求异常，已展示离线缓存'
-          })
-        } else {
-          resolve({
-            success: false,
-            keys: [],
-            isFromCache: false,
-            error: '网络请求异常'
-          })
+        let keysList = []
+        if (resData && Array.isArray(resData.data)) {
+          keysList = resData.data
+        } else if (Array.isArray(resData)) {
+          keysList = resData
         }
-      })
-    }
+
+        const now = new Date()
+        const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
+
+        // 缓存真实数据到本地存储
+        const cacheObj = {
+          keys: keysList,
+          updatedAt: timeStr
+        }
+        await setStorage(STORAGE_KEY_QUOTA_CACHE, cacheObj)
+        await setStorage(STORAGE_KEY_LAST_SYNC_TIME, timeStr)
+
+        resolve({
+          success: true,
+          keys: keysList,
+          isFromCache: false,
+          updatedAt: timeStr
+        })
+      },
+      fail: async function (errData, code) {
+        resolve(await getFallbackCache(`测算失败 (${code || 'offline'})`))
+      }
+    })
   })
 }
 
@@ -190,6 +192,7 @@ export async function checkSingleKey(id) {
       url: endpoint,
       method: 'POST',
       responseType: 'json',
+      timeout: 10000,
       success: function (res) {
         let resData = res.data
         if (typeof resData === 'string') {

@@ -1,27 +1,21 @@
 <template>
   <div class="page">
     <scroll class="scroll-container" scroll-y="true">
-      <!-- 顶部状态栏 -->
+      <!-- 顶部状态栏 (自适应椭圆边角，左右元素缩进 20px) -->
       <div class="header-bar">
         <div class="brand-box">
           <image class="brand-logo-img" src="/common/logo.png"></image>
           <text class="brand-title">星环流动</text>
         </div>
         <div class="status-badge">
+          <text class="count-text" if="{{keys.length > 0}}">{{keys.length}} 节点</text>
           <text class="status-text {{isOffline ? 'text-zinc' : 'text-emerald'}}">
             {{isOffline ? '离线' : '在线'}}
           </text>
         </div>
       </div>
 
-      <!-- 概览统计条 (真实数据统计) -->
-      <div class="stats-row" if="{{keys.length > 0}}">
-        <text class="stats-item">共 {{keys.length}} 节点</text>
-        <text class="stats-item">托管: {{tokenPlaneCount}}</text>
-        <text class="stats-item">API: {{apiKeyCount}}</text>
-      </div>
-
-      <!-- 空状态提示 (当尚未在 Web 控制台添加任何 Key 时) -->
+      <!-- 空状态提示 -->
       <div class="empty-card" if="{{!isLoading && keys.length === 0}}">
         <text class="empty-title">暂无算力配置</text>
         <text class="empty-desc">请在 Web 控制台添加 API 资源或托管账号</text>
@@ -40,23 +34,22 @@
           for="{{(idx, item) in keys}}"
           onclick="goDetail(item.id)"
         >
-          <!-- ========== A. Token Plane 类型卡片 (Antigravity & Codex) ========== -->
+          <!-- A. Token Plane 类型卡片 -->
           <div class="card-content" if="{{item.isTokenPlane}}">
-            <!-- 头部：图标 + 标题 + 邮箱 + PlanType -->
             <div class="card-top">
               <div class="provider-badge {{item.avatarBgClass}}">
                 <text class="avatar-text">{{item.avatarText}}</text>
               </div>
               <div class="info-col">
-                <text class="item-name">{{item.name}}</text>
+                <div class="title-row">
+                  <text class="item-name">{{item.name}}</text>
+                  <text class="plan-badge {{item.planBadgeClass}}" if="{{item.planType}}">{{item.planType}}</text>
+                </div>
                 <text class="item-sub" if="{{item.email}}">{{item.email}}</text>
-              </div>
-              <div class="badge-col" if="{{item.planType}}">
-                <text class="plan-badge {{item.planBadgeClass}}">{{item.planType}}</text>
               </div>
             </div>
 
-            <!-- 主额度区 (大字百分比 + 倒计时) -->
+            <!-- 主额度区 -->
             <div class="quota-main-row">
               <div class="percent-box">
                 <text class="percent-val {{item.percentColorClass}}">{{item.remainingPercent}}%</text>
@@ -68,37 +61,24 @@
               </div>
             </div>
 
-            <!-- 加粗细条主进度条 -->
+            <!-- 加粗主进度条 -->
             <div class="progress-track">
               <div class="progress-fill {{item.progressBgClass}}" style="width: {{item.progressWidth}}px;"></div>
             </div>
-
-            <!-- 子模型细项列表 (如 Gemini 2.5 Flash / Pro, Claude 3.7 Sonnet) -->
-            <div class="sub-details-box" if="{{item.details && item.details.length > 0}}">
-              <div class="sub-item" for="{{(dIdx, d) in item.details}}">
-                <div class="sub-row">
-                  <text class="sub-name">{{d.name}}</text>
-                  <text class="sub-percent {{d.colorClass}}">{{d.remainingPercentage}}%</text>
-                </div>
-                <div class="progress-track-sm">
-                  <div class="progress-fill {{d.bgClass}}" style="width: {{d.calcWidth}}px;"></div>
-                </div>
-              </div>
-            </div>
           </div>
 
-          <!-- ========== B. API Key 类型卡片 (通用密钥 & 探针指标) ========== -->
+          <!-- B. API Key 类型卡片 -->
           <div class="card-content" if="{{!item.isTokenPlane}}">
             <div class="card-top">
               <div class="provider-badge bg-emerald-box">
                 <text class="avatar-text">KEY</text>
               </div>
               <div class="info-col">
-                <text class="item-name">{{item.name}}</text>
+                <div class="title-row">
+                  <text class="item-name">{{item.name}}</text>
+                  <text class="status-pill-text {{item.statusClass}}">{{item.statusLabel}}</text>
+                </div>
                 <text class="item-sub" if="{{item.maskedKey}}">{{item.maskedKey}}</text>
-              </div>
-              <div class="badge-col">
-                <text class="status-pill-text {{item.statusClass}}">{{item.statusLabel}}</text>
               </div>
             </div>
 
@@ -125,7 +105,7 @@
             </div>
           </div>
 
-          <!-- 卡片底栏 (更新时间 + 状态) -->
+          <!-- 卡片底栏 -->
           <div class="card-bottom">
             <text class="card-time" if="{{item.lastTestedAt}}">更新于 {{item.lastTestedTime}}</text>
             <text class="card-time" if="{{!item.lastTestedAt}}">未测算</text>
@@ -134,14 +114,22 @@
         </div>
       </div>
 
-      <!-- 操作功能区 -->
+      <!-- 操作功能区 (左右双按钮: 刷新数据 + 同步配额) -->
       <div class="action-section">
-        <input
-          class="sync-btn {{isLoading ? 'btn-disabled' : ''}}"
-          type="button"
-          value="{{isLoading ? '正在同步...' : '同步全盘算力'}}"
-          onclick="handleSync"
-        />
+        <div class="action-row">
+          <input
+            class="action-btn-half sync-btn {{isLoading ? 'btn-disabled' : ''}}"
+            type="button"
+            value="{{isLoading ? '刷新中...' : '刷新数据'}}"
+            onclick="handleSync"
+          />
+          <input
+            class="action-btn-half check-btn {{isCheckingAll ? 'btn-disabled' : ''}}"
+            type="button"
+            value="{{isCheckingAll ? '同步中...' : '同步配额'}}"
+            onclick="handleCheckAll"
+          />
+        </div>
 
         <input
           class="settings-btn"
@@ -165,18 +153,25 @@ import prompt from '@system.prompt'
 import vibrator from '@system.vibrator'
 import {
   queryWatchQuota,
+  probeAllWatchQuota,
   STORAGE_KEY_LAST_SYNC_TIME
 } from '../../common/api.js'
 import { getStorage } from '../../common/storage.js'
+import {
+  formatCountdown,
+  getPercentTheme,
+  getProviderAvatar,
+  maskApiKey,
+  formatTestedTime
+} from '../../common/formatter.js'
 
 export default {
   private: {
     isLoading: false,
+    isCheckingAll: false,
     isOffline: false,
     lastSyncTime: '--:--',
     keys: [],
-    tokenPlaneCount: 0,
-    apiKeyCount: 0,
     timerId: null
   },
 
@@ -187,7 +182,6 @@ export default {
   },
 
   onShow() {
-    // 抬腕亮屏时自动静默刷新
     this.fetchData(false)
   },
 
@@ -209,37 +203,56 @@ export default {
     if (this.timerId) return
     this.timerId = setInterval(() => {
       if (!this.keys || this.keys.length === 0) return
-      let hasUpdate = false
-      const updated = this.keys.map((k) => {
+      this.keys.forEach((k) => {
         if (k.isTokenPlane && k.rawSecondsRemaining > 0) {
-          k.rawSecondsRemaining -= 1
-          k.countdownText = this.formatCountdown(k.rawSecondsRemaining)
-          hasUpdate = true
+          k.rawSecondsRemaining = Math.max(0, k.rawSecondsRemaining - 5)
+          k.countdownText = formatCountdown(k.rawSecondsRemaining)
         }
-        if (k.details && k.details.length > 0) {
-          k.details.forEach((d) => {
-            if (d.rawSecondsRemaining > 0) {
-              d.rawSecondsRemaining -= 1
-              hasUpdate = true
-            }
-          })
-        }
-        return k
       })
-      if (hasUpdate) {
-        this.keys = updated
-      }
-    }, 1000)
+    }, 5000)
   },
 
   async handleSync() {
-    if (this.isLoading) return
+    if (this.isLoading || this.isCheckingAll) return
 
     try {
       vibrator.vibrate({ mode: 'short' })
     } catch (e) {}
 
     await this.fetchData(true)
+  },
+
+  async handleCheckAll() {
+    if (this.isLoading || this.isCheckingAll) return
+    this.isCheckingAll = true
+
+    try {
+      vibrator.vibrate({ mode: 'short' })
+    } catch (e) {}
+
+    try {
+      const res = await probeAllWatchQuota()
+      this.isOffline = res.isFromCache
+
+      if (res.keys) {
+        this.processKeys(res.keys)
+
+        const now = new Date()
+        this.lastSyncTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
+
+        try {
+          prompt.showToast({
+            message: res.isFromCache ? '已展示本地缓存' : '配额同步完成'
+          })
+        } catch (e) {}
+      }
+    } catch (err) {
+      try {
+        prompt.showToast({ message: '同步异常' })
+      } catch (e) {}
+    } finally {
+      this.isCheckingAll = false
+    }
   },
 
   async fetchData(isManual = false) {
@@ -253,13 +266,12 @@ export default {
         this.processKeys(res.keys)
 
         const now = new Date()
-        const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
-        this.lastSyncTime = timeStr
+        this.lastSyncTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
 
         if (isManual) {
           try {
             prompt.showToast({
-              message: res.isFromCache ? '已展示本地缓存配额' : '算力配额已同步'
+              message: res.isFromCache ? '已展示本地缓存' : '数据已刷新'
             })
           } catch (e) {}
         }
@@ -267,7 +279,7 @@ export default {
     } catch (err) {
       if (isManual) {
         try {
-          prompt.showToast({ message: '同步异常' })
+          prompt.showToast({ message: '刷新异常' })
         } catch (e) {}
       }
     } finally {
@@ -278,94 +290,27 @@ export default {
   processKeys(rawKeys) {
     if (!rawKeys || !Array.isArray(rawKeys)) {
       this.keys = []
-      this.tokenPlaneCount = 0
-      this.apiKeyCount = 0
       return
     }
 
-    let tpCount = 0
-    let akCount = 0
-
     const processed = rawKeys.map((item) => {
       const isTp = item.type === 'token-plane' || item.provider === 'google-antigravity' || item.provider === 'openai-codex'
-      if (isTp) {
-        tpCount++
-      } else {
-        akCount++
-      }
 
-      // 处理 Token Plane 字段
-      let remainingPercent = 100
-      let progressWidth = 410
-      let percentColorClass = 'text-emerald'
-      let progressBgClass = 'bg-emerald'
-      let rawSecs = 0
-      let countdownText = ''
-      let planType = ''
+      // Token Plane 字段计算
+      const remainingPercent = item.tokenQuota?.remainingPercentage ?? 100
+      const progressWidth = Math.max(12, Math.min(404, Math.floor((remainingPercent / 100) * 404)))
+      const theme = getPercentTheme(remainingPercent, item.provider)
+      const rawSecs = item.tokenQuota?.secondsRemaining || 0
+      const planType = item.tokenQuota?.planType || ''
+
       let planBadgeClass = 'badge-slate'
-      let detailsList = []
-
-      if (item.tokenQuota) {
-        remainingPercent = item.tokenQuota.remainingPercentage !== undefined ? item.tokenQuota.remainingPercentage : 100
-        progressWidth = Math.max(12, Math.min(410, Math.floor((remainingPercent / 100) * 410)))
-
-        if (remainingPercent <= 15) {
-          percentColorClass = 'text-rose'
-          progressBgClass = 'bg-rose'
-        } else if (remainingPercent <= 50) {
-          percentColorClass = 'text-amber'
-          progressBgClass = 'bg-amber'
-        } else {
-          percentColorClass = item.provider === 'google-antigravity' ? 'text-indigo' : 'text-emerald'
-          progressBgClass = item.provider === 'google-antigravity' ? 'bg-indigo' : 'bg-emerald'
-        }
-
-        rawSecs = item.tokenQuota.secondsRemaining || 0
-        countdownText = this.formatCountdown(rawSecs)
-        planType = item.tokenQuota.planType || ''
-
-        if (planType.toLowerCase().includes('ultra')) {
-          planBadgeClass = 'badge-amber'
-        } else if (planType.toLowerCase().includes('pro')) {
-          planBadgeClass = 'badge-indigo'
-        }
-
-        if (item.tokenQuota.details && Array.isArray(item.tokenQuota.details)) {
-          detailsList = item.tokenQuota.details.map((d) => {
-            const dRem = d.remainingPercentage !== undefined ? d.remainingPercentage : 100
-            let dColor = 'text-emerald'
-            let dBg = 'bg-emerald'
-            if (dRem <= 15) {
-              dColor = 'text-rose'
-              dBg = 'bg-rose'
-            } else if (dRem <= 50) {
-              dColor = 'text-amber'
-              dBg = 'bg-amber'
-            } else {
-              dColor = 'text-indigo'
-              dBg = 'bg-indigo'
-            }
-            return {
-              name: d.name,
-              providerGroup: d.providerGroup,
-              remainingPercentage: dRem,
-              rawSecondsRemaining: d.secondsRemaining || 0,
-              calcWidth: Math.max(10, Math.min(380, Math.floor((dRem / 100) * 380))),
-              colorClass: dColor,
-              bgClass: dBg
-            }
-          })
-        }
+      if (planType.toLowerCase().includes('ultra')) {
+        planBadgeClass = 'badge-amber'
+      } else if (planType.toLowerCase().includes('pro')) {
+        planBadgeClass = 'badge-indigo'
       }
 
-      // 处理 API Key 字段
-      let maskedKey = ''
-      if (item.apiKey) {
-        maskedKey = item.apiKey.length > 10
-          ? `${item.apiKey.slice(0, 4)}••••${item.apiKey.slice(-4)}`
-          : '••••••••'
-      }
-
+      // API Key 探针字段
       let statusLabel = '未检测'
       let statusClass = 'pill-zinc'
       if (item.status === 'active') {
@@ -381,32 +326,7 @@ export default {
         tpmText = `${(item.quotaInfo.remainingTokens / 1000).toFixed(0)}K`
       }
 
-      // 图标与背景
-      let avatarText = 'TP'
-      let avatarBgClass = 'bg-indigo-box'
-      if (item.provider === 'google-antigravity') {
-        avatarText = 'AG'
-        avatarBgClass = 'bg-indigo-box'
-      } else if (item.provider === 'openai-codex') {
-        avatarText = 'CX'
-        avatarBgClass = 'bg-emerald-box'
-      } else if (item.provider === 'google-aistudio') {
-        avatarText = 'GS'
-        avatarBgClass = 'bg-indigo-box'
-      } else if (item.provider === 'openai-compatible') {
-        avatarText = 'OA'
-        avatarBgClass = 'bg-emerald-box'
-      }
-
-      let lastTestedTime = ''
-      if (item.lastTestedAt) {
-        try {
-          const d = new Date(item.lastTestedAt)
-          lastTestedTime = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-        } catch (e) {
-          lastTestedTime = item.lastTestedAt
-        }
-      }
+      const avatar = getProviderAvatar(item.provider)
 
       return {
         id: item.id,
@@ -416,42 +336,27 @@ export default {
         baseUrl: item.baseUrl,
         email: item.email,
         isTokenPlane: isTp,
-        avatarText,
-        avatarBgClass,
+        avatarText: avatar.text,
+        avatarBgClass: avatar.bgClass,
         remainingPercent,
         progressWidth,
-        percentColorClass,
-        progressBgClass,
+        percentColorClass: theme.colorClass,
+        progressBgClass: theme.bgClass,
         rawSecondsRemaining: rawSecs,
-        countdownText,
+        countdownText: formatCountdown(rawSecs),
         planType,
         planBadgeClass,
-        details: detailsList,
-        maskedKey,
+        maskedKey: maskApiKey(item.apiKey),
         statusLabel,
         statusClass,
         quotaInfo: item.quotaInfo,
         tpmText,
         lastTestedAt: item.lastTestedAt,
-        lastTestedTime
+        lastTestedTime: formatTestedTime(item.lastTestedAt)
       }
     })
 
     this.keys = processed
-    this.tokenPlaneCount = tpCount
-    this.apiKeyCount = akCount
-  },
-
-  formatCountdown(totalSeconds) {
-    if (!totalSeconds || totalSeconds <= 0) return ''
-    const hrs = Math.floor(totalSeconds / 3600)
-    const mins = Math.floor((totalSeconds % 3600) / 60)
-    const secs = totalSeconds % 60
-
-    if (hrs > 0) {
-      return `${hrs}h ${mins}m`
-    }
-    return `${mins}m ${secs}s`
   },
 
   goDetail(id) {
@@ -461,9 +366,7 @@ export default {
 
     router.push({
       uri: '/pages/detail',
-      params: {
-        id
-      }
+      params: { id }
     })
   },
 
@@ -499,8 +402,8 @@ export default {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
-  padding-left: 4px;
-  padding-right: 4px;
+  padding-left: 20px;
+  padding-right: 20px;
 }
 
 .brand-box {
@@ -524,26 +427,20 @@ export default {
 .status-badge {
   flex-direction: row;
   align-items: center;
+  justify-content: flex-end;
+}
+
+.count-text {
+  color: #a1a1aa;
+  font-size: 20px;
+  line-height: 24px;
+  font-weight: bold;
+  margin-right: 8px;
 }
 
 .status-text {
   font-size: 20px;
-  font-weight: bold;
-}
-
-/* 统计条 */
-.stats-row {
-  flex-direction: row;
-  justify-content: space-between;
-  background-color: #18181b;
-  border-radius: 14px;
-  padding: 10px 18px;
-  margin-bottom: 16px;
-}
-
-.stats-item {
-  color: #d4d4d8;
-  font-size: 19px;
+  line-height: 24px;
   font-weight: bold;
 }
 
@@ -577,7 +474,7 @@ export default {
   width: 320px;
   height: 58px;
   border-radius: 29px;
-  background-color: #4f46e5;
+  background-color: #6366f1;
   color: #ffffff;
   font-size: 22px;
   font-weight: bold;
@@ -594,7 +491,7 @@ export default {
   border-radius: 28px;
   border-width: 2px;
   border-color: #27272a;
-  padding: 20px 22px;
+  padding: 20px;
   margin-bottom: 18px;
 }
 
@@ -628,42 +525,56 @@ export default {
 
 .avatar-text {
   color: #ffffff;
-  font-size: 24px;
+  font-size: 22px;
   font-weight: bold;
 }
 
 .info-col {
-  flex-direction: column;
   flex: 1;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.title-row {
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
 }
 
 .item-name {
   color: #ffffff;
-  font-size: 26px;
+  font-size: 24px;
   font-weight: bold;
+  line-height: 28px;
 }
 
 .item-sub {
   color: #a1a1aa;
   font-size: 18px;
-  margin-top: 3px;
+  margin-top: 2px;
 }
 
 .badge-col {
-  flex-direction: column;
+  justify-content: center;
   align-items: flex-end;
 }
 
 .plan-badge {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: bold;
   border-radius: 10px;
   padding: 4px 10px;
 }
 
+.badge-slate {
+  background-color: #27272a;
+  color: #d4d4d8;
+}
+
 .badge-indigo {
   background-color: #312e81;
-  color: #c7d2fe;
+  color: #a5b4fc;
 }
 
 .badge-amber {
@@ -671,17 +582,12 @@ export default {
   color: #fde68a;
 }
 
-.badge-slate {
-  background-color: #27272a;
-  color: #a1a1aa;
-}
-
-/* 配额主体行 */
+/* 主额度区 */
 .quota-main-row {
   flex-direction: row;
   justify-content: space-between;
   align-items: flex-end;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .percent-box {
@@ -689,13 +595,14 @@ export default {
 }
 
 .percent-val {
-  font-size: 40px;
+  font-size: 44px;
   font-weight: bold;
+  line-height: 48px;
 }
 
 .percent-desc {
-  color: #a1a1aa;
-  font-size: 18px;
+  color: #71717a;
+  font-size: 17px;
   margin-top: 2px;
 }
 
@@ -706,66 +613,30 @@ export default {
 
 .countdown-val {
   color: #818cf8;
-  font-size: 22px;
+  font-size: 28px;
   font-weight: bold;
+  line-height: 32px;
 }
 
 .countdown-desc {
   color: #71717a;
-  font-size: 16px;
+  font-size: 17px;
   margin-top: 2px;
 }
 
 /* 进度条 */
 .progress-track {
-  width: 410px;
+  width: 404px;
   height: 12px;
   border-radius: 6px;
   background-color: #27272a;
-  margin-bottom: 14px;
-}
-
-.progress-track-sm {
-  width: 380px;
-  height: 8px;
-  border-radius: 4px;
-  background-color: #27272a;
-  margin-top: 6px;
+  overflow: hidden;
+  margin-bottom: 6px;
 }
 
 .progress-fill {
   height: 12px;
   border-radius: 6px;
-}
-
-/* 子模型细项 */
-.sub-details-box {
-  flex-direction: column;
-  background-color: #18181b;
-  border-radius: 18px;
-  padding: 14px 16px;
-  margin-bottom: 12px;
-}
-
-.sub-item {
-  flex-direction: column;
-  margin-bottom: 10px;
-}
-
-.sub-row {
-  flex-direction: row;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.sub-name {
-  color: #e4e4e7;
-  font-size: 20px;
-}
-
-.sub-percent {
-  font-size: 20px;
-  font-weight: bold;
 }
 
 /* API Key 样式 */
@@ -795,46 +666,48 @@ export default {
   flex-direction: row;
   align-items: center;
   background-color: #18181b;
-  border-radius: 14px;
-  padding: 10px 14px;
+  border-radius: 12px;
+  padding: 8px 12px;
   margin-bottom: 12px;
 }
 
 .endpoint-label {
-  color: #a1a1aa;
-  font-size: 18px;
+  color: #71717a;
+  font-size: 17px;
   margin-right: 8px;
 }
 
 .endpoint-url {
-  color: #38bdf8;
+  color: #d4d4d8;
   font-size: 18px;
+  lines: 1;
+  text-overflow: ellipsis;
 }
 
 .probe-grid {
   flex-direction: row;
   justify-content: space-between;
+  background-color: #18181b;
+  border-radius: 16px;
+  padding: 12px 14px;
   margin-bottom: 12px;
 }
 
 .probe-cell {
   flex-direction: column;
   align-items: center;
-  background-color: #18181b;
-  border-radius: 14px;
-  width: 130px;
-  padding: 10px 6px;
+  flex: 1;
 }
 
 .probe-label {
-  color: #a1a1aa;
+  color: #71717a;
   font-size: 16px;
+  margin-bottom: 4px;
 }
 
 .probe-val {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: bold;
-  margin-top: 4px;
 }
 
 /* 卡片底栏 */
@@ -842,18 +715,17 @@ export default {
   flex-direction: row;
   justify-content: space-between;
   align-items: center;
-  margin-top: 6px;
-  padding-top: 4px;
+  margin-top: 8px;
 }
 
 .card-time {
-  color: #a1a1aa;
-  font-size: 18px;
+  color: #71717a;
+  font-size: 17px;
 }
 
 .card-action {
   color: #818cf8;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: bold;
 }
 
@@ -864,28 +736,41 @@ export default {
   margin-bottom: 16px;
 }
 
-.sync-btn {
+.action-row {
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
   width: 440px;
-  height: 68px;
-  border-radius: 34px;
-  background-color: #4f46e5;
+  margin-bottom: 12px;
+}
+
+.action-btn-half {
+  width: 214px;
+  height: 64px;
+  border-radius: 32px;
   color: #ffffff;
-  font-size: 24px;
+  font-size: 22px;
   font-weight: bold;
-  margin-bottom: 14px;
+}
+
+.sync-btn {
+  background-color: #6366f1;
+}
+
+.check-btn {
+  background-color: #059669;
 }
 
 .btn-disabled {
-  background-color: #312e81;
-  opacity: 0.6;
+  opacity: 0.8;
 }
 
 .settings-btn {
   width: 440px;
   height: 60px;
   border-radius: 30px;
-  background-color: #27272a;
-  color: #e4e4e7;
+  background-color: #3f3f46;
+  color: #ffffff;
   font-size: 22px;
 }
 
@@ -902,12 +787,6 @@ export default {
   font-size: 18px;
 }
 
-.meta-tip {
-  color: #71717a;
-  font-size: 16px;
-  margin-top: 6px;
-}
-
 /* 颜色工具 */
 .text-indigo {
   color: #818cf8;
@@ -922,15 +801,15 @@ export default {
 }
 
 .text-rose {
-  color: #fb7185;
-}
-
-.text-zinc {
-  color: #a1a1aa;
+  color: #f43f5e;
 }
 
 .text-sky {
   color: #38bdf8;
+}
+
+.text-zinc {
+  color: #71717a;
 }
 
 .bg-indigo {

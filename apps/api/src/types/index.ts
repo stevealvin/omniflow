@@ -1,4 +1,4 @@
-// 分类明细额度结构（如 Gemini 算力池、Claude 算力池等）
+// 分类明细额度结构（如 Gemini、Claude 等模型分组）
 export interface QuotaDetailItem {
   name: string
   providerGroup: string // 'Gemini' | 'Claude' | 'OpenAI' | 'Other'

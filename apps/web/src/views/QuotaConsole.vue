@@ -176,7 +176,7 @@ const groupQuotaDetails = (details?: QuotaDetailItem[]) => {
   if (!details || details.length === 0) return {}
   const groups: Record<string, QuotaDetailItem[]> = {}
   for (const item of details) {
-    const rawGroup = item.providerGroup || '算力池'
+    const rawGroup = item.providerGroup || '通用'
     if (!groups[rawGroup]) groups[rawGroup] = []
     groups[rawGroup].push(item)
   }

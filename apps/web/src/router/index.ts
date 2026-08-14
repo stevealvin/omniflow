@@ -21,12 +21,6 @@ const router = createRouter({
           meta: { title: 'AI 算力控制中心' }
         },
         {
-          path: 'watch-simulator',
-          name: 'WatchSimulator',
-          component: () => import('@/views/WatchSimulator.vue'),
-          meta: { title: 'Redmi Watch 6 模拟器' }
-        },
-        {
           path: 'app-hub',
           name: 'AppHub',
           component: () => import('@/views/AppHub.vue'),

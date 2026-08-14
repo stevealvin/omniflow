@@ -147,12 +147,7 @@ export class AntigravityProvider implements IQuotaProvider {
             const secRem = resetTime ? Math.max(0, Math.floor((new Date(resetTime).getTime() - Date.now()) / 1000)) : 0
             const resetStr = resetTime ? formatDateTime(new Date(resetTime)) : '无需重置'
 
-            let groupName = grp.displayName
-            if (!groupName) {
-              if (name?.toLowerCase().includes('claude')) groupName = 'Claude 算力池'
-              else if (name?.toLowerCase().includes('gpt')) groupName = 'GPT-OSS 算力池'
-              else groupName = 'Gemini 算力池'
-            }
+            const groupName = grp.displayName || ''
 
             details.push({
               name,
