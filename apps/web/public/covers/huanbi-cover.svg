@@ -1,0 +1,180 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs>
+    <linearGradient id="bg-novel" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a051b" />
+      <stop offset="50%" stop-color="#150d2e" />
+      <stop offset="100%" stop-color="#0d0822" />
+    </linearGradient>
+    <linearGradient id="accent-purple" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a855f7" />
+      <stop offset="100%" stop-color="#6366f1" />
+    </linearGradient>
+    <linearGradient id="accent-pink" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ec4899" />
+      <stop offset="100%" stop-color="#8b5cf6" />
+    </linearGradient>
+    <linearGradient id="glass-purple" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="rgba(255, 255, 255, 0.12)" />
+      <stop offset="100%" stop-color="rgba(255, 255, 255, 0.03)" />
+    </linearGradient>
+    <radialGradient id="glow-cosmic" cx="50%" cy="45%" r="50%">
+      <stop offset="0%" stop-color="rgba(168, 85, 247, 0.35)" />
+      <stop offset="60%" stop-color="rgba(99, 102, 241, 0.12)" />
+      <stop offset="100%" stop-color="transparent" />
+    </radialGradient>
+    <radialGradient id="glow-star" cx="25%" cy="75%" r="35%">
+      <stop offset="0%" stop-color="rgba(236, 72, 153, 0.2)" />
+      <stop offset="100%" stop-color="transparent" />
+    </radialGradient>
+    <filter id="glow-subtle-p" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="12" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1280" height="720" fill="url(#bg-novel)" />
+  <rect width="1280" height="720" fill="url(#glow-cosmic)" />
+  <rect width="1280" height="720" fill="url(#glow-star)" />
+
+  <!-- Constellation Nodes & Grid lines -->
+  <g opacity="0.18" stroke="#c084fc" stroke-width="1">
+    <line x1="0" y1="180" x2="1280" y2="180" stroke-dasharray="4 8" />
+    <line x1="0" y1="360" x2="1280" y2="360" stroke-dasharray="4 8" />
+    <line x1="0" y1="540" x2="1280" y2="540" stroke-dasharray="4 8" />
+    <line x1="320" y1="0" x2="320" y2="720" stroke-dasharray="4 8" />
+    <line x1="640" y1="0" x2="640" y2="720" stroke-dasharray="4 8" />
+    <line x1="960" y1="0" x2="960" y2="720" stroke-dasharray="4 8" />
+  </g>
+
+  <!-- Stars in galaxy -->
+  <g fill="#ffffff" opacity="0.6">
+    <circle cx="240" cy="120" r="2" />
+    <circle cx="380" cy="90" r="1.5" />
+    <circle cx="520" cy="150" r="2" />
+    <circle cx="780" cy="110" r="2.5" />
+    <circle cx="890" cy="80" r="1.5" />
+    <circle cx="1050" cy="140" r="2" />
+    <circle cx="1180" cy="220" r="1.5" />
+    <circle cx="150" cy="480" r="2" />
+    <circle cx="1120" cy="520" r="2" />
+  </g>
+
+  <!-- Top Metadata Bar -->
+  <g transform="translate(80, 60)">
+    <rect width="150" height="32" rx="16" fill="rgba(168, 85, 247, 0.15)" stroke="rgba(168, 85, 247, 0.4)" stroke-width="1" />
+    <circle cx="20" cy="16" r="4" fill="#a855f7" />
+    <text x="32" y="21" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="700" fill="#c084fc" letter-spacing="1.5">HUANBI AI</text>
+    <text x="180" y="21" font-family="ui-monospace, SFMono-Regular, monospace" font-size="12" fill="#a79bbb" letter-spacing="1">AI LONG NOVEL ENGINE • MULTIVERSE WORLDBUILDING</text>
+  </g>
+
+  <!-- Center Floating Magical Quill / Ink Pen & Story Arc -->
+  <g transform="translate(640, 310)">
+    <!-- Concentric story rings -->
+    <circle cx="0" cy="0" r="220" fill="none" stroke="rgba(192, 132, 252, 0.08)" stroke-width="1" stroke-dasharray="10 15" />
+    <circle cx="0" cy="0" r="160" fill="none" stroke="rgba(192, 132, 252, 0.15)" stroke-width="1.5" />
+    <circle cx="0" cy="0" r="110" fill="none" stroke="url(#accent-purple)" stroke-width="2" opacity="0.6" filter="url(#glow-subtle-p)" />
+
+    <!-- Open Manuscript Book Base -->
+    <path d="M-120 40 Q -60 20, 0 35 Q 60 20, 120 40 L100 90 Q 50 70, 0 80 Q -50 70, -100 90 Z" fill="rgba(21, 13, 46, 0.9)" stroke="rgba(192, 132, 252, 0.4)" stroke-width="2" />
+    
+    <!-- Glowing Celestial Quill Pen -->
+    <g transform="rotate(35) translate(-10, -90)">
+      <!-- Feather quill body -->
+      <path d="M0 -70 Q 25 -30, 10 30 L 0 70 L -10 30 Q -25 -30, 0 -70 Z" fill="url(#accent-pink)" filter="url(#glow-subtle-p)" />
+      <line x1="0" y1="-65" x2="0" y2="70" stroke="#ffffff" stroke-width="1.5" opacity="0.8" />
+      <!-- Golden Nib -->
+      <polygon points="-4,70 4,70 0,90" fill="#fbbf24" />
+      <circle cx="0" cy="90" r="3" fill="#ffffff" filter="url(#glow-subtle-p)" />
+    </g>
+
+    <!-- Star magic sparkles around nib -->
+    <circle cx="35" cy="-15" r="3" fill="#e879f9" filter="url(#glow-subtle-p)" />
+    <circle cx="-45" cy="-30" r="2.5" fill="#c084fc" />
+    <circle cx="60" cy="30" r="2" fill="#fbbf24" />
+  </g>
+
+  <!-- Left Floating Novel Structure Card -->
+  <g transform="translate(110, 160)">
+    <rect width="280" height="360" rx="24" fill="url(#glass-purple)" stroke="rgba(255, 255, 255, 0.15)" stroke-width="1.5" />
+    <rect x="20" y="20" width="90" height="22" rx="11" fill="rgba(168, 85, 247, 0.2)" />
+    <text x="30" y="36" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11" font-weight="700" fill="#c084fc">世界观架构</text>
+    
+    <rect x="20" y="60" width="190" height="8" rx="4" fill="rgba(255, 255, 255, 0.7)" />
+    <rect x="20" y="78" width="240" height="6" rx="3" fill="rgba(255, 255, 255, 0.25)" />
+    <rect x="20" y="92" width="220" height="6" rx="3" fill="rgba(255, 255, 255, 0.25)" />
+    <rect x="20" y="106" width="160" height="6" rx="3" fill="rgba(255, 255, 255, 0.25)" />
+
+    <!-- Novel Character & Plot Tree -->
+    <g transform="translate(20, 135)">
+      <rect width="115" height="24" rx="8" fill="rgba(168, 85, 247, 0.15)" stroke="rgba(168, 85, 247, 0.4)" stroke-width="1" />
+      <text x="10" y="16" font-family="ui-monospace, monospace" font-size="10" font-weight="600" fill="#d8b4fe">Arc: 80万字</text>
+      
+      <rect x="125" width="115" height="24" rx="8" fill="rgba(236, 72, 153, 0.15)" stroke="rgba(236, 72, 153, 0.4)" stroke-width="1" />
+      <text x="135" y="16" font-family="ui-monospace, monospace" font-size="10" font-weight="600" fill="#f472b6">Style: 奇幻史诗</text>
+    </g>
+
+    <g transform="translate(20, 175)">
+      <rect width="240" height="155" rx="16" fill="#120a27" stroke="rgba(192, 132, 252, 0.3)" stroke-width="1" />
+      <!-- Chapter Tree Graphic -->
+      <circle cx="40" cy="220" r="12" fill="#9333ea" />
+      <text x="40" y="224" font-family="sans-serif" font-size="9" font-weight="700" fill="#ffffff" text-anchor="middle">卷一</text>
+
+      <line x1="52" y1="220" x2="100" y2="220" stroke="#a855f7" stroke-width="2" />
+      <circle cx="112" cy="220" r="12" fill="#c084fc" />
+      <text x="112" y="224" font-family="sans-serif" font-size="9" font-weight="700" fill="#1e1035" text-anchor="middle">卷二</text>
+
+      <line x1="124" y1="220" x2="170" y2="220" stroke="#ec4899" stroke-width="2" />
+      <circle cx="182" cy="220" r="12" fill="#ec4899" filter="url(#glow-subtle-p)" />
+      <text x="182" y="224" font-family="sans-serif" font-size="9" font-weight="700" fill="#ffffff" text-anchor="middle">卷三</text>
+
+      <text x="120" y="285" font-family="sans-serif" font-size="12" font-weight="600" fill="#d8b4fe" text-anchor="middle">长篇伏笔与人物关系连贯</text>
+      <text x="120" y="305" font-family="sans-serif" font-size="10" fill="#a79bbb" text-anchor="middle">百万字剧情不崩盘</text>
+    </g>
+  </g>
+
+  <!-- Right Floating Generation Engine Card -->
+  <g transform="translate(890, 160)">
+    <rect width="280" height="360" rx="24" fill="url(#glass-purple)" stroke="rgba(255, 255, 255, 0.15)" stroke-width="1.5" />
+    
+    <rect x="20" y="20" width="95" height="22" rx="11" fill="rgba(236, 72, 153, 0.2)" />
+    <text x="30" y="36" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11" font-weight="700" fill="#f472b6">智能长文生成</text>
+
+    <g transform="translate(20, 55)">
+      <rect width="240" height="80" rx="12" fill="rgba(18, 10, 39, 0.85)" stroke="rgba(255, 255, 255, 0.08)" stroke-width="1" />
+      <text x="12" y="24" font-family="sans-serif" font-size="10" fill="#c084fc">「星辰陨落之时，宿命之轮</text>
+      <text x="12" y="44" font-family="sans-serif" font-size="10" fill="#c084fc">在无声中再度转动...」</text>
+      <text x="12" y="64" font-family="ui-monospace, monospace" font-size="9" fill="#ec4899">自动续写第 42 章 • 速度: 85 tokens/s</text>
+    </g>
+
+    <!-- Chapter List Preview -->
+    <g transform="translate(20, 150)">
+      <rect x="0" y="0" width="240" height="30" rx="8" fill="#1a1038" stroke="rgba(168, 85, 247, 0.3)" stroke-width="1" />
+      <text x="12" y="20" font-family="sans-serif" font-size="10" font-weight="600" fill="#e9d5ff">第 1 章：起源之潮 (已完稿)</text>
+      
+      <rect x="0" y="38" width="240" height="30" rx="8" fill="#1a1038" stroke="rgba(168, 85, 247, 0.3)" stroke-width="1" />
+      <text x="12" y="58" font-family="sans-serif" font-size="10" font-weight="600" fill="#e9d5ff">第 2 章：深渊低语 (已完稿)</text>
+
+      <rect x="0" y="76" width="240" height="30" rx="8" fill="rgba(236, 72, 153, 0.15)" stroke="rgba(236, 72, 153, 0.4)" stroke-width="1" />
+      <text x="12" y="96" font-family="sans-serif" font-size="10" font-weight="700" fill="#f472b6">第 3 章：破晓征途 (AI 续写中...)</text>
+    </g>
+
+    <g transform="translate(20, 265)">
+      <rect width="240" height="75" rx="14" fill="rgba(168, 85, 247, 0.15)" stroke="rgba(168, 85, 247, 0.4)" stroke-width="1" />
+      <circle cx="28" cy="38" r="12" fill="#a855f7" />
+      <polygon points="26,32 34,38 26,44" fill="#ffffff" />
+      <text x="52" y="33" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="12" font-weight="700" fill="#ffffff">一键开始长篇小说创作</text>
+      <text x="52" y="53" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#c084fc">支持大纲拆解与分卷生成</text>
+    </g>
+  </g>
+
+  <!-- Bottom Title and Description -->
+  <g transform="translate(640, 610)" text-anchor="middle">
+    <text y="0" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif" font-size="38" font-weight="900" fill="#ffffff" letter-spacing="-0.5">
+      幻笔 AI HuanBi
+    </text>
+    <text y="34" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="16" font-weight="500" fill="#a79bbb" letter-spacing="0.5">
+      通过 AI 构思并自动编写长篇小说、史诗大纲与章节续写
+    </text>
+  </g>
+</svg>

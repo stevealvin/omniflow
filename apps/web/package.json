@@ -5,9 +5,9 @@
   "type": "module",
   "description": "星环流动 (OmniFlow) Vue 3 Web Console",
   "scripts": {
-    "dev": "vite --port 5200 --host",
+    "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview --port 5200"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@lucide/vue": "^1.30.0",

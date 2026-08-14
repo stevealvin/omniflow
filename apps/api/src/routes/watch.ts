@@ -8,3 +8,9 @@ watchRouter.get('/watch/sync', async (c) => {
   const result = await getWatchSyncData()
   return c.json(result)
 })
+
+watchRouter.post('/watch/sync', async (c) => {
+  const result = await getWatchSyncData()
+  return c.json(result)
+})
+

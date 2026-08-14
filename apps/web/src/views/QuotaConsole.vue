@@ -307,7 +307,7 @@ onMounted(() => {
           <a-button
             type="primary"
             @click="openAddModal"
-            class="inline-flex items-center gap-1.5 font-bold rounded-2xl text-xs !h-10 !px-4 !bg-gradient-to-r !from-indigo-600 !to-indigo-500 hover:!from-indigo-500 hover:!to-indigo-400 shadow-md shadow-indigo-500/20 border-0 active:scale-[0.98] transition-all duration-100 ease-out"
+            class="inline-flex items-center gap-1.5 font-bold rounded-2xl text-xs h-10! px-4! bg-linear-to-r! from-indigo-600! to-indigo-500! hover:from-indigo-500! hover:to-indigo-400! shadow-md shadow-indigo-500/20 border-0 active:scale-[0.98] transition-all duration-100 ease-out"
           >
             <template #icon>
               <Plus class="w-4 h-4" />
@@ -436,7 +436,7 @@ onMounted(() => {
     <!-- 暂无数据空状态 -->
     <div v-else-if="filteredKeys.length === 0" class="py-20 bg-white/70 dark:bg-zinc-900/70 backdrop-blur-2xl rounded-3xl border border-slate-200/70 dark:border-zinc-800/70 p-8 text-center shadow-sm">
       <a-empty :description="searchQuery || filterType !== 'all' || filterProvider !== 'all' ? '未找到符合条件的 API 资源记录' : '暂无配置记录'">
-        <a-button type="primary" @click="openAddModal" class="!mt-3 !bg-indigo-600 hover:!bg-indigo-500 !rounded-xl active:scale-[0.98]">
+        <a-button type="primary" @click="openAddModal" class="mt-3! bg-indigo-600! hover:bg-indigo-500! rounded-xl! active:scale-[0.98]">
           新建 API 资源
         </a-button>
       </a-empty>

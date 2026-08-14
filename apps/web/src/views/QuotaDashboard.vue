@@ -168,23 +168,13 @@ const myApps = [
     path: '/watch-simulator'
   },
   {
-    id: 'alert-gateway',
-    name: '星环通知与路由网关',
-    desc: '设置低配额告警阈值，额度不足时即时触发 Telegram Bot 与 Bark 手机警报',
-    tag: '消息路由',
-    tagClass: 'bg-rose-50 dark:bg-rose-950/70 text-rose-600 dark:text-rose-400 border-rose-200/60 dark:border-rose-800/60',
-    icon: Bell,
-    iconBg: 'bg-gradient-to-br from-rose-500 to-pink-600 text-white shadow-rose-500/20',
-    path: '/alerts'
-  },
-  {
     id: 'app-hub',
-    name: '微服务与插件生态槽',
-    desc: '扩展短链中转、手表随手记待办与 System Prompt 模版库等个人插件槽',
-    tag: '生态扩展',
+    name: '我的应用生态矩阵',
+    desc: '集中管理个人 AI 应用（镜头工坊、幻笔AI 等）与微服务入口',
+    tag: '应用生态',
     tagClass: 'bg-emerald-50 dark:bg-emerald-950/70 text-emerald-600 dark:text-emerald-400 border-emerald-200/60 dark:border-emerald-800/60',
     icon: LayoutGrid,
-    iconBg: 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-emerald-500/20',
+    iconBg: 'bg-linear-to-br from-emerald-500 to-teal-600 text-white shadow-emerald-500/20',
     path: '/app-hub'
   }
 ]
@@ -258,7 +248,7 @@ onMounted(() => {
     <div v-else-if="quotaStore.keys.length === 0" class="py-16 bg-white dark:bg-zinc-900 rounded-3xl border border-slate-200 dark:border-zinc-800 p-8 text-center">
       <a-empty description="大盘暂无 API 资源配置记录">
         <router-link to="/keys">
-          <a-button type="primary" class="!mt-3 !bg-indigo-600 hover:!bg-indigo-500 !rounded-xl">
+          <a-button type="primary" class="mt-3! bg-indigo-600! hover:bg-indigo-500! rounded-xl!">
             前往【API 密钥与算力控制台】添加资源
           </a-button>
         </router-link>

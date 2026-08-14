@@ -13,13 +13,11 @@ declare module 'vue' {
   export interface GlobalComponents {
     AApp: typeof import('antdv-next')['App']
     AButton: typeof import('antdv-next')['Button']
-    ACard: typeof import('antdv-next')['Card']
     AConfigProvider: typeof import('antdv-next')['ConfigProvider']
     AEmpty: typeof import('antdv-next')['Empty']
     AForm: typeof import('antdv-next')['Form']
     AFormItem: typeof import('antdv-next')['FormItem']
     AInput: typeof import('antdv-next')['Input']
-    AInputNumber: typeof import('antdv-next')['InputNumber']
     AInputPassword: typeof import('antdv-next')['InputPassword']
     ALayout: typeof import('antdv-next')['Layout']
     ALayoutHeader: typeof import('antdv-next')['LayoutHeader']
@@ -31,6 +29,7 @@ declare module 'vue' {
     ASelect: typeof import('antdv-next')['Select']
     ASpin: typeof import('antdv-next')['Spin']
     ATag: typeof import('antdv-next')['Tag']
+    ATextarea: typeof import('antdv-next')['TextArea']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
   }

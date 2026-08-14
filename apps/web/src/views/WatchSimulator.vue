@@ -43,7 +43,7 @@ onMounted(() => {
         type="primary"
         :loading="isSyncing"
         @click="triggerWatchSync"
-        class="inline-flex items-center gap-1.5 font-medium rounded-lg !bg-indigo-600 hover:!bg-indigo-500"
+        class="inline-flex items-center gap-1.5 font-medium rounded-lg bg-indigo-600! hover:bg-indigo-500!"
       >
         <template #icon>
           <RefreshCw class="w-4 h-4" />

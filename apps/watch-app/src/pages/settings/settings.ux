@@ -1,0 +1,333 @@
+<template>
+  <div class="page">
+    <scroll class="scroll-container" scroll-y="true">
+      <!-- 顶部导航 -->
+      <div class="nav-bar">
+        <input class="back-btn" type="button" value="❮ 返回" onclick="goBack" />
+        <text class="page-title">手表设置</text>
+        <div class="nav-placeholder"></div>
+      </div>
+
+      <!-- 当前后端地址卡片 -->
+      <div class="card">
+        <text class="card-label">当前 API 同步地址</text>
+        <text class="card-url">{{currentUrl}}</text>
+
+        <!-- 连通性测试结果提示 -->
+        <div class="test-result-box" if="{{hasTested}}">
+          <text class="test-result-text {{testSuccess ? 'text-emerald' : 'text-rose'}}">
+            {{testMessage}}
+          </text>
+        </div>
+
+        <input
+          class="test-btn {{isTesting ? 'btn-disabled' : ''}}"
+          type="button"
+          value="{{isTesting ? '正在测试...' : '📡 测试网络连通性'}}"
+          onclick="testConnection"
+        />
+      </div>
+
+      <!-- 快速预设地址卡片 -->
+      <div class="card">
+        <text class="card-label">快捷预设切换</text>
+
+        <div class="preset-btn-list">
+          <input
+            class="preset-item {{currentUrl === 'http://127.0.0.1:5100' ? 'preset-active' : ''}}"
+            type="button"
+            value="本地环境 (127.0.0.1:5100)"
+            onclick="selectPreset('http://127.0.0.1:5100')"
+          />
+
+          <input
+            class="preset-item {{currentUrl === 'http://10.0.2.2:5100' ? 'preset-active' : ''}}"
+            type="button"
+            value="模拟器内网 (10.0.2.2:5100)"
+            onclick="selectPreset('http://10.0.2.2:5100')"
+          />
+
+          <input
+            class="preset-item {{currentUrl === 'http://192.168.1.100:5100' ? 'preset-active' : ''}}"
+            type="button"
+            value="局域网主机 (192.168.1.100:5100)"
+            onclick="selectPreset('http://192.168.1.100:5100')"
+          />
+        </div>
+      </div>
+
+      <!-- 缓存与操作 -->
+      <div class="card">
+        <text class="card-label">本地数据管理</text>
+        <input
+          class="danger-btn"
+          type="button"
+          value="🗑️ 清除本地额度缓存"
+          onclick="handleClearCache"
+        />
+      </div>
+
+      <!-- 底部关于信息 -->
+      <div class="about-box">
+        <text class="about-text">星环流动 OmniFlow Watch v1.0</text>
+        <text class="about-sub">Xiaomi Vela OS 穿戴专属算力聚合引擎</text>
+      </div>
+
+      <div class="bottom-spacer"></div>
+    </scroll>
+  </div>
+</template>
+
+<script>
+import router from '@system.router'
+import prompt from '@system.prompt'
+import vibrator from '@system.vibrator'
+import fetch from '@system.fetch'
+import {
+  getApiBaseUrl,
+  setApiBaseUrl,
+  DEFAULT_API_BASE_URL
+} from '../../common/api.js'
+import { clearStorage } from '../../common/storage.js'
+
+export default {
+  private: {
+    currentUrl: DEFAULT_API_BASE_URL,
+    isTesting: false,
+    hasTested: false,
+    testSuccess: false,
+    testMessage: ''
+  },
+
+  onInit() {
+    this.loadCurrentConfig()
+  },
+
+  async loadCurrentConfig() {
+    const url = await getApiBaseUrl()
+    this.currentUrl = url
+  },
+
+  async selectPreset(url) {
+    try {
+      vibrator.vibrate({ mode: 'short' })
+    } catch (e) {}
+
+    this.currentUrl = url
+    await setApiBaseUrl(url)
+    this.hasTested = false
+
+    try {
+      prompt.showToast({ message: '已切换至 ' + url })
+    } catch (e) {}
+  },
+
+  async testConnection() {
+    if (this.isTesting) return
+    this.isTesting = true
+    this.hasTested = false
+
+    try {
+      vibrator.vibrate({ mode: 'short' })
+    } catch (e) {}
+
+    const startTime = Date.now()
+    const targetUrl = `${this.currentUrl}/api/watch/sync`
+
+    fetch.fetch({
+      url: targetUrl,
+      method: 'GET',
+      responseType: 'json',
+      success: () => {
+        const latency = Date.now() - startTime
+        this.isTesting = false
+        this.hasTested = true
+        this.testSuccess = true
+        this.testMessage = `✅ 连接成功 (${latency}ms)`
+        try {
+          prompt.showToast({ message: '后端服务连接畅通' })
+        } catch (e) {}
+      },
+      fail: (data, code) => {
+        this.isTesting = false
+        this.hasTested = true
+        this.testSuccess = false
+        this.testMessage = `❌ 无法连接服务器 (错误码: ${code || 'fail'})`
+        try {
+          prompt.showToast({ message: '无法连接指定 API' })
+        } catch (e) {}
+      }
+    })
+  },
+
+  async handleClearCache() {
+    try {
+      vibrator.vibrate({ mode: 'short' })
+    } catch (e) {}
+
+    await clearStorage()
+    await setApiBaseUrl(this.currentUrl)
+
+    try {
+      prompt.showToast({ message: '本地额度缓存已清空' })
+    } catch (e) {}
+  },
+
+  goBack() {
+    try {
+      vibrator.vibrate({ mode: 'short' })
+    } catch (e) {}
+    router.back()
+  }
+}
+</script>
+
+<style>
+.page {
+  flex-direction: column;
+  background-color: #000000;
+  width: 480px;
+  height: 480px;
+}
+
+.scroll-container {
+  flex-direction: column;
+  width: 480px;
+  padding: 12px 18px 28px 18px;
+}
+
+/* 顶部导航 */
+.nav-bar {
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.back-btn {
+  width: 90px;
+  height: 38px;
+  border-radius: 19px;
+  background-color: #27272a;
+  color: #ffffff;
+  font-size: 16px;
+}
+
+.page-title {
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.nav-placeholder {
+  width: 90px;
+}
+
+/* 卡片 */
+.card {
+  flex-direction: column;
+  background-color: #141416;
+  border-radius: 20px;
+  border-width: 2px;
+  border-color: #27272a;
+  padding: 16px 18px;
+  margin-bottom: 14px;
+}
+
+.card-label {
+  color: #a1a1aa;
+  font-size: 15px;
+  margin-bottom: 8px;
+}
+
+.card-url {
+  color: #ffffff;
+  font-size: 17px;
+  font-weight: bold;
+  margin-bottom: 12px;
+}
+
+.test-result-box {
+  margin-bottom: 10px;
+}
+
+.test-result-text {
+  font-size: 15px;
+  font-weight: bold;
+}
+
+.test-btn {
+  width: 400px;
+  height: 48px;
+  border-radius: 24px;
+  background-color: #312e81;
+  color: #c7d2fe;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.preset-btn-list {
+  flex-direction: column;
+}
+
+.preset-item {
+  width: 400px;
+  height: 46px;
+  border-radius: 23px;
+  background-color: #27272a;
+  color: #e4e4e7;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.preset-active {
+  background-color: #4f46e5;
+  color: #ffffff;
+  font-weight: bold;
+}
+
+.danger-btn {
+  width: 400px;
+  height: 48px;
+  border-radius: 24px;
+  background-color: #881337;
+  color: #fecdd3;
+  font-size: 16px;
+}
+
+.btn-disabled {
+  opacity: 0.6;
+}
+
+/* 关于区 */
+.about-box {
+  flex-direction: column;
+  align-items: center;
+  margin-top: 10px;
+  margin-bottom: 20px;
+}
+
+.about-text {
+  color: #71717a;
+  font-size: 14px;
+}
+
+.about-sub {
+  color: #52525b;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.bottom-spacer {
+  height: 24px;
+}
+
+/* 颜色 */
+.text-emerald {
+  color: #34d399;
+}
+
+.text-rose {
+  color: #fb7185;
+}
+</style>

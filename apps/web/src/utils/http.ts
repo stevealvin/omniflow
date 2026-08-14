@@ -3,8 +3,6 @@ import axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosResponse 
 // 从 Vite 环境变量中读取基础接口地址（默认 fallback 为 /api）
 const baseURL = import.meta.env.VITE_API_BASE_URL || '/api'
 
-console.log(baseURL);
-
 
 // 创建 Axios 实例
 const instance: AxiosInstance = axios.create({

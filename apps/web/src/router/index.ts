@@ -27,16 +27,10 @@ const router = createRouter({
           meta: { title: 'Redmi Watch 6 模拟器' }
         },
         {
-          path: 'alerts',
-          name: 'AlertSettings',
-          component: () => import('@/views/AlertSettings.vue'),
-          meta: { title: '星环通知与路由' }
-        },
-        {
           path: 'app-hub',
           name: 'AppHub',
           component: () => import('@/views/AppHub.vue'),
-          meta: { title: '扩展应用中心' }
+          meta: { title: '我的应用生态' }
         }
       ]
     }
