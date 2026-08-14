@@ -1,18 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "npm install --include=dev",
   "buildCommand": "npm run build:web",
   "outputDirectory": "apps/web/dist",
-  "functions": {
-    "apps/api/src/app.ts": {
-      "memory": 1024,
-      "maxDuration": 15
-    }
-  },
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/apps/api/src/app.ts"
+      "destination": "/api"
     },
     {
       "source": "/(.*)",
