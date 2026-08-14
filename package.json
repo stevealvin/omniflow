@@ -2,6 +2,7 @@
   "name": "omniflow",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "description": "星环流动 (OmniFlow) — 个人开发者 OS & 多端微服务控制平台",
   "workspaces": [
     "apps/*"
