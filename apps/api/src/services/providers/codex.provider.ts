@@ -33,24 +33,28 @@ export class CodexProvider implements IQuotaProvider {
       const res = await httpClient.get(targetUrl, {
         headers: {
           Authorization: `Bearer ${token}`,
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          Accept: 'application/json',
+          Referer: 'https://chatgpt.com/',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36'
         }
       })
 
       const data = res.data
-      const primaryWindow = data?.primary_window || {}
-      const usedPct = primaryWindow.used_percentage ?? 0
-      const remainingPercentage = Math.max(0, 100 - usedPct)
-      const secRem = primaryWindow.reset_time_remaining_seconds || 10800
-      const nextReset = formatFullDateTime(new Date(Date.now() + secRem * 1000))
+      const primaryWindow = data?.rate_limit?.primary_window
+
+      const usedPct = primaryWindow?.used_percent ?? 0
+      const remainingPercentage = typeof primaryWindow?.used_percent === 'number' ? Math.max(0, 100 - primaryWindow.used_percent) : 0
+      const secRem = primaryWindow?.reset_after_seconds ?? 0
+      const resetIntervalHours = primaryWindow?.limit_window_seconds ? Math.round(primaryWindow.limit_window_seconds / 3600) : 0
+      const nextReset = secRem > 0 ? formatFullDateTime(new Date(Date.now() + secRem * 1000)) : ''
 
       const tokenQuota: TokenPlaneQuota = {
         usedPercentage: usedPct,
         remainingPercentage,
-        resetIntervalHours: 3,
+        resetIntervalHours,
         secondsRemaining: secRem,
         nextResetTime: nextReset,
-        planType: data?.plan_type || 'Plus / Team'
+        planType: data?.plan_type || ''
       }
 
       return { status: 'active', tokenQuota, rawQuotaData: data, lastTestedAt: now }
