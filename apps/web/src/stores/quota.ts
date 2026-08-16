@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed, reactive } from 'vue'
+import { useIntervalFn } from '@vueuse/core'
 import { http } from '@/utils/http'
 
 export interface QuotaDetailItem {
@@ -54,7 +55,6 @@ export const useQuotaStore = defineStore('quota', () => {
   const isLoading = ref(false)
   const checkingAll = ref(false)
   const checkingIds = reactive<Record<string, boolean>>({})
-  let timer: any = null
 
   // 兼容别名属性 loading
   const loading = computed(() => isLoading.value)
@@ -62,21 +62,24 @@ export const useQuotaStore = defineStore('quota', () => {
   // 判断指定 Key 是否正在测试中 (支持多卡片并行并发加载)
   const isKeyChecking = (id: string) => !!checkingIds[id]
 
-  // 启动倒计时计数器
+  // 使用 VueUse 的 useIntervalFn 管理秒级配额倒计时（自动防内存泄漏）
+  const { resume: resumeCountdown, isActive: isCountdownActive } = useIntervalFn(() => {
+    keys.value.forEach((k) => {
+      if (k.tokenQuota && k.tokenQuota.secondsRemaining > 0) {
+        k.tokenQuota.secondsRemaining -= 1
+      }
+      if (k.tokenQuota?.details) {
+        k.tokenQuota.details.forEach((d) => {
+          if (d.secondsRemaining > 0) d.secondsRemaining -= 1
+        })
+      }
+    })
+  }, 1000, { immediate: false })
+
   const startCountdown = () => {
-    if (timer) return
-    timer = setInterval(() => {
-      keys.value.forEach((k) => {
-        if (k.tokenQuota && k.tokenQuota.secondsRemaining > 0) {
-          k.tokenQuota.secondsRemaining -= 1
-        }
-        if (k.tokenQuota?.details) {
-          k.tokenQuota.details.forEach((d) => {
-            if (d.secondsRemaining > 0) d.secondsRemaining -= 1
-          })
-        }
-      })
-    }, 1000)
+    if (!isCountdownActive.value) {
+      resumeCountdown()
+    }
   }
 
   // 1. 获取所有 API 资源与密钥列表

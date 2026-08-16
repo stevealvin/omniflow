@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@lucide/vue": "^1.30.0",
+    "@vueuse/core": "^14.4.0",
     "antdv-next": "^1.5.0",
     "axios": "^1.19.0",
     "dayjs": "^1.11.21",

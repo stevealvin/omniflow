@@ -9,7 +9,13 @@ import path from 'node:path'
 
 export default defineConfig({
   plugins: [
-    vue(),
+    vue({
+      template: {
+        compilerOptions: {
+          isCustomElement: (tag) => tag.startsWith('gecko-'),
+        },
+      },
+    }),
     tailwindcss(),
     Components({
       resolvers: [AntdvNextResolver()],

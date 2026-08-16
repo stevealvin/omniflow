@@ -18,13 +18,19 @@ const router = createRouter({
           path: 'quota',
           name: 'QuotaConsole',
           component: () => import('@/views/QuotaConsole.vue'),
-          meta: { title: 'AI 算力控制中心' }
+          meta: { title: '智能算力中枢' }
         },
         {
           path: 'app-hub',
           name: 'AppHub',
           component: () => import('@/views/AppHub.vue'),
           meta: { title: '我的应用生态' }
+        },
+        {
+          path: 'market',
+          name: 'MarketCharts',
+          component: () => import('@/views/MarketCharts.vue'),
+          meta: { title: '全球宏观与加密行情看板' }
         }
       ]
     }

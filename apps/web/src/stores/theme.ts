@@ -1,34 +1,24 @@
 import { defineStore } from 'pinia'
-import { ref, computed, watchEffect } from 'vue'
+import { computed } from 'vue'
+import { useDark, useToggle } from '@vueuse/core'
 
 export type ThemeMode = 'light' | 'dark'
 
 export const useThemeStore = defineStore('theme', () => {
-  // 默认使用白天 (Light) 模式（按用户要求设为默认）
-  const mode = ref<ThemeMode>('light')
+  // 默认使用 useDark()，自动处理 html.dark 类名与默认 localStorage 持久化
+  const isDark = useDark()
+  const toggleTheme = useToggle(isDark)
 
-  const toggleTheme = () => {
-    mode.value = mode.value === 'light' ? 'dark' : 'light'
-  }
+  const mode = computed<ThemeMode>(() => isDark.value ? 'dark' : 'light')
 
   const setTheme = (newMode: ThemeMode) => {
-    mode.value = newMode
+    isDark.value = newMode === 'dark'
   }
 
-  // 监听模式变更，自动同步控制 HTML 根节点的 dark class 类名
-  watchEffect(() => {
-    const root = document.documentElement
-    if (mode.value === 'dark') {
-      root.classList.add('dark')
-    } else {
-      root.classList.remove('dark')
-    }
-  })
-
   return {
+    isDark,
     mode,
     toggleTheme,
-    setTheme,
-    isDark: computed(() => mode.value === 'dark'),
+    setTheme
   }
 })

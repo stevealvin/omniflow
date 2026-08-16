@@ -111,7 +111,7 @@ const metricsSummary = computed(() => {
       unit: '个资源',
       statusText: totalCount > 0 ? '资源充沛' : '暂无资源',
       icon: Key,
-      color: 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60'
+      color: 'text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-950/60'
     },
     {
       title: '探针正常资源',
@@ -151,9 +151,9 @@ const myApps = [
     name: 'AI 配额监控',
     desc: '全盘管控 Token Plane 托管账号与 API Key 算力配额，支持即时探测与探针联动',
     tag: '内核核心',
-    tagClass: 'bg-indigo-50 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400 border-indigo-200/60 dark:border-indigo-800/60',
+    tagClass: 'bg-cyan-50 dark:bg-cyan-950/70 text-cyan-600 dark:text-cyan-400 border-cyan-200/60 dark:border-cyan-800/60',
     icon: Bot,
-    iconBg: 'bg-linear-to-br from-indigo-500 to-purple-600 text-white shadow-indigo-500/20',
+    iconBg: 'bg-linear-to-br from-cyan-500 to-blue-600 text-white shadow-cyan-500/20',
     path: '/quota'
   },
   {
@@ -179,8 +179,8 @@ onMounted(() => {
     <!-- 副标题栏与顶栏操作 -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-200/80 dark:border-zinc-800/80">
       <div class="flex items-center gap-2">
-        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60">
-          <Zap class="w-3.5 h-3.5 text-indigo-500" />
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60">
+          <Zap class="w-3.5 h-3.5 text-emerald-500" />
           星环流动算力大盘
         </span>
         <span class="text-xs text-slate-500 dark:text-slate-400">
@@ -208,7 +208,7 @@ onMounted(() => {
       <div
         v-for="item in metricsSummary"
         :key="item.title"
-        class="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 transition-all duration-200"
+        class="rounded-2xl border border-slate-200/70 dark:border-white/8 bg-white/90 dark:bg-zinc-900/85 backdrop-blur-xl p-4 transition-all duration-200 shadow-2xs"
       >
         <div class="flex items-center justify-between">
           <span class="text-xs font-medium text-slate-500 dark:text-slate-400">{{ item.title }}</span>
@@ -229,15 +229,15 @@ onMounted(() => {
     </div>
 
     <!-- 加载中状态 -->
-    <div v-if="quotaStore.loading" class="py-16 text-center bg-white dark:bg-zinc-900 rounded-3xl border border-slate-200 dark:border-zinc-800">
+    <div v-if="quotaStore.loading" class="py-16 text-center bg-white/90 dark:bg-zinc-900/85 backdrop-blur-xl rounded-3xl border border-slate-200/70 dark:border-white/8">
       <a-spin description="正在拉取真实算力大盘数据..." />
     </div>
 
     <!-- 暂无资源数据 -->
-    <div v-else-if="quotaStore.keys.length === 0" class="py-16 bg-white dark:bg-zinc-900 rounded-3xl border border-slate-200 dark:border-zinc-800 p-8 text-center">
+    <div v-else-if="quotaStore.keys.length === 0" class="py-16 bg-white/90 dark:bg-zinc-900/85 backdrop-blur-xl rounded-3xl border border-slate-200/70 dark:border-white/8 p-8 text-center">
       <a-empty description="大盘暂无 API 资源配置记录">
         <router-link to="/keys">
-          <a-button type="primary" class="mt-3! bg-indigo-600! hover:bg-indigo-500! rounded-xl!">
+          <a-button type="primary" class="mt-3! rounded-xl!">
             前往【API 密钥与算力控制台】添加资源
           </a-button>
         </router-link>
@@ -245,17 +245,17 @@ onMounted(() => {
     </div>
 
     <template v-else>
-      <!-- 2. Token Plane 托管账号核心算力大盘卡片 -->
+      <!-- 2. Token Plane 托管账号核心算力大盘卡片 (3 列网格布局) -->
       <div v-if="tokenPlaneKeys.length > 0" class="space-y-3">
         <h3 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-          <Zap class="w-4 h-4 text-indigo-500" />
+          <Zap class="w-4 h-4 text-emerald-500" />
           Token Plane 托管账号算力配额
         </h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
           <div
             v-for="item in tokenPlaneKeys"
             :key="item.id"
-            class="rounded-3xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 space-y-4"
+            class="rounded-3xl border border-slate-200/70 dark:border-white/8 bg-white/90 dark:bg-zinc-900/85 backdrop-blur-2xl p-5 space-y-4 shadow-sm"
           >
             <div class="flex items-start justify-between gap-3">
               <div>
@@ -281,40 +281,47 @@ onMounted(() => {
                 >
                   {{ item.tokenQuota.planType }}
                 </span>
-                <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60">
+                <span
+                  :class="[
+                    'px-2.5 py-0.5 rounded-full text-xs font-semibold border',
+                    item.provider === 'google-antigravity'
+                      ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border-indigo-200/60 dark:border-indigo-800/60'
+                      : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border-emerald-200/60 dark:border-emerald-800/60'
+                  ]"
+                >
                   {{ item.provider === 'google-antigravity' ? 'Antigravity' : 'OpenAI Codex' }}
                 </span>
               </div>
             </div>
 
-            <!-- 配额主体区：左列（圆形仪表+文字，固定宽度）/ 右列（details 伸展占满剩余宽度） -->
+            <!-- 配额主体区：左列（圆形仪表+文字）/ 右列（details 伸展占满剩余宽度） -->
             <div
               v-if="item.tokenQuota"
               :class="[
-                'flex items-center gap-5 min-w-0 py-1',
+                'flex items-center gap-4 min-w-0 py-1',
                 item.tokenQuota.details?.length ? 'justify-between' : 'justify-center'
               ]"
             >
-              <!-- 左列：圆形仪表盘 + 倒计时 + 重置时刻 (较宽区域 224px，居中) -->
+              <!-- 左列：圆形仪表盘 + 倒计时 + 重置时刻 -->
               <div
                 :class="[
                   'flex flex-col items-center justify-center gap-2 shrink-0',
-                  item.tokenQuota.details?.length ? 'w-56' : 'w-full'
+                  item.tokenQuota.details?.length ? 'w-44' : 'w-full'
                 ]"
               >
-                <!-- 圆形仪表盘 (放大为 110px) -->
-                <div class="relative w-[110px] h-[110px] flex items-center justify-center shrink-0">
+                <!-- 圆形仪表盘 (适配 3 列宽度 96px) -->
+                <div class="relative w-[96px] h-[96px] flex items-center justify-center shrink-0">
                   <a-progress
                     type="dashboard"
                     :percent="item.tokenQuota.remainingPercentage"
-                    :size="110"
-                    :stroke-width="10"
+                    :size="96"
+                    :stroke-width="9"
                     :stroke-color="item.provider === 'google-antigravity' ? { '0%': '#818cf8', '100%': '#4f46e5' } : { '0%': '#34d399', '100%': '#059669' }"
                     :show-info="false"
                   />
                   <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <span class="text-[10px] text-slate-400 font-medium leading-none mb-1">剩余</span>
-                    <span class="text-xl font-black font-mono tracking-tight text-slate-900 dark:text-white leading-none">
+                    <span class="text-[10px] text-slate-400 font-medium leading-none mb-0.5">剩余</span>
+                    <span class="text-lg font-black font-mono tracking-tight text-slate-900 dark:text-white leading-none">
                       {{ item.tokenQuota.remainingPercentage }}%
                     </span>
                   </div>
@@ -323,12 +330,24 @@ onMounted(() => {
                 <!-- 倒计时 + 重置时刻（仪表盘下方） -->
                 <div class="space-y-1 text-center w-full">
                   <div v-if="getCardSecondsRemaining(item.tokenQuota) > 0" class="flex items-center justify-center gap-1 text-xs">
-                    <Clock class="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                    <span class="font-mono font-bold text-indigo-600 dark:text-indigo-400">{{ formatCountdown(getCardSecondsRemaining(item.tokenQuota)) }}</span>
+                    <Clock
+                      :class="[
+                        'w-3.5 h-3.5 shrink-0',
+                        item.provider === 'google-antigravity' ? 'text-indigo-400' : 'text-emerald-400'
+                      ]"
+                    />
+                    <span
+                      :class="[
+                        'font-mono font-bold text-[11px]',
+                        item.provider === 'google-antigravity' ? 'text-indigo-600 dark:text-indigo-400' : 'text-emerald-600 dark:text-emerald-400'
+                      ]"
+                    >
+                      {{ formatCountdown(getCardSecondsRemaining(item.tokenQuota)) }}
+                    </span>
                   </div>
                   <div v-if="item.tokenQuota.nextResetTime" class="flex items-center justify-center gap-1 text-xs">
                     <Calendar class="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                    <span class="font-mono text-slate-500 dark:text-slate-400">{{ item.tokenQuota.nextResetTime }}</span>
+                    <span class="font-mono text-[11px] text-slate-500 dark:text-slate-400">{{ item.tokenQuota.nextResetTime }}</span>
                   </div>
                 </div>
               </div>
@@ -392,17 +411,17 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- 3. API Key 通用密钥连通状态列表 -->
+      <!-- 3. API Key 通用密钥连通状态列表 (3 列网格布局) -->
       <div v-if="apiKeyResources.length > 0" class="space-y-3 pt-2">
         <h3 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
           <Key class="w-4 h-4 text-emerald-500" />
           API Key 通用密钥探针状态
         </h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           <div
             v-for="item in apiKeyResources"
             :key="item.id"
-            class="p-4 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 space-y-2.5"
+            class="p-4 rounded-2xl border border-slate-200/70 dark:border-white/8 bg-white/90 dark:bg-zinc-900/85 backdrop-blur-xl space-y-2.5 shadow-2xs"
           >
             <div class="flex items-center justify-between">
               <div>
@@ -418,7 +437,7 @@ onMounted(() => {
             <div v-if="item.quotaInfo" class="grid grid-cols-3 gap-2 text-center text-xs pt-1 border-t border-slate-100 dark:border-zinc-800">
               <div>
                 <span class="text-[10px] text-slate-400">剩余 RPM</span>
-                <p class="font-mono font-bold text-indigo-600">{{ item.quotaInfo.remainingRequests ?? '---' }}</p>
+                <p class="font-mono font-bold text-emerald-600 dark:text-emerald-400">{{ item.quotaInfo.remainingRequests ?? '---' }}</p>
               </div>
               <div>
                 <span class="text-[10px] text-slate-400">剩余 TPM</span>
@@ -441,7 +460,7 @@ onMounted(() => {
       <div class="space-y-3 pt-3 border-t border-slate-200/70 dark:border-zinc-800/80">
         <div class="flex items-center justify-between">
           <h3 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <LayoutGrid class="w-4 h-4 text-indigo-500" />
+            <LayoutGrid class="w-4 h-4 text-emerald-500" />
             我的应用与微服务项目
           </h3>
           <span class="text-xs text-slate-400 font-mono">
@@ -454,7 +473,7 @@ onMounted(() => {
             v-for="app in myApps"
             :key="app.id"
             @click="router.push(app.path)"
-            class="group p-4 rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-white/90 dark:bg-zinc-900/90 hover:border-indigo-300 dark:hover:border-indigo-700/70 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 flex flex-col justify-between space-y-3 cursor-pointer"
+            class="group p-4 rounded-2xl border border-slate-200/70 dark:border-white/8 bg-white/90 dark:bg-zinc-900/85 backdrop-blur-xl hover:border-emerald-300 dark:hover:border-emerald-600/50 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 flex flex-col justify-between space-y-3 cursor-pointer"
           >
             <div class="flex items-start justify-between">
               <div
@@ -477,9 +496,9 @@ onMounted(() => {
             </div>
 
             <div class="space-y-1">
-              <div class="flex items-center justify-between font-bold text-sm text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+              <div class="flex items-center justify-between font-bold text-sm text-slate-900 dark:text-white group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">
                 <span>{{ app.name }}</span>
-                <ArrowUpRight class="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity text-indigo-500" />
+                <ArrowUpRight class="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity text-cyan-500" />
               </div>
               <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-2">
                 {{ app.desc }}

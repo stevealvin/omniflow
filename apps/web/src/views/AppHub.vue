@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { message } from 'antdv-next'
+import { useClipboard } from '@vueuse/core'
 import {
   ExternalLink,
   Copy,
@@ -88,8 +89,10 @@ const openApp = (url: string) => {
   window.open(url, '_blank')
 }
 
-const copyUrl = (url: string) => {
-  navigator.clipboard.writeText(url)
+const { copy } = useClipboard()
+
+const copyUrl = async (url: string) => {
+  await copy(url)
   message.success('已复制应用访问地址到剪贴板')
 }
 </script>
@@ -97,12 +100,12 @@ const copyUrl = (url: string) => {
 <template>
   <div class="space-y-6 max-w-7xl mx-auto">
     <!-- 1. 顶栏控制台 Banner (Apple Translucent Chrome Header) -->
-    <div class="rounded-3xl border border-slate-200/70 dark:border-zinc-800/80 bg-white/70 dark:bg-zinc-900/70 backdrop-blur-2xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)] border-t border-t-white/80 dark:border-t-white/10 space-y-4">
+    <div class="rounded-3xl border border-slate-200/70 dark:border-white/8 bg-white/70 dark:bg-zinc-900/75 backdrop-blur-2xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.3)] border-t border-t-white/80 dark:border-t-white/10 space-y-4">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div class="space-y-1">
           <div class="flex items-center gap-2.5">
-            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-50/90 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 border border-indigo-200/80 dark:border-indigo-800/80 shadow-2xs">
-              <Compass class="w-3.5 h-3.5 text-indigo-500" />
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50/90 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800/80 shadow-2xs">
+              <Compass class="w-3.5 h-3.5 text-emerald-500" />
               应用矩阵与生态中枢
             </span>
             <span class="text-xs font-medium text-slate-500 dark:text-slate-400 hidden md:inline">
@@ -119,7 +122,7 @@ const copyUrl = (url: string) => {
           <a-button
             type="primary"
             @click="isAddModalVisible = true"
-            class="inline-flex items-center gap-1.5 font-bold rounded-2xl text-xs h-10! px-4! bg-linear-to-r! from-indigo-600! to-indigo-500! hover:from-indigo-500! hover:to-indigo-400! shadow-md shadow-indigo-500/20 border-0 active:scale-[0.98] transition-all duration-100 ease-out"
+            class="inline-flex items-center gap-1.5 font-bold rounded-xl! text-xs h-9! px-4! active:scale-[0.98] transition-all duration-100 ease-out"
           >
             <template #icon>
               <Plus class="w-4 h-4" />
@@ -131,12 +134,12 @@ const copyUrl = (url: string) => {
 
       <!-- 数据快照指标行 -->
       <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2">
-        <div class="p-3 rounded-2xl bg-slate-100/60 dark:bg-zinc-800/40 border border-slate-200/50 dark:border-zinc-700/50 backdrop-blur-md flex items-center justify-between">
+        <div class="p-3 rounded-2xl bg-slate-100/60 dark:bg-zinc-800/40 border border-slate-200/50 dark:border-white/6 backdrop-blur-md flex items-center justify-between">
           <div class="space-y-0.5">
             <span class="text-[11px] text-slate-400 font-medium">线上已发布应用</span>
             <div class="text-lg font-black font-mono tracking-tight text-slate-900 dark:text-white">{{ apps.length }} 个</div>
           </div>
-          <div class="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-100 dark:border-indigo-900/60 flex items-center justify-center text-indigo-500 shrink-0 shadow-2xs">
+          <div class="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-100 dark:border-emerald-900/60 flex items-center justify-center text-emerald-500 shrink-0 shadow-2xs">
             <Layers class="w-4 h-4" />
           </div>
         </div>
@@ -168,7 +171,7 @@ const copyUrl = (url: string) => {
       <div
         v-for="app in apps"
         :key="app.id"
-        class="group rounded-3xl border border-slate-200/70 dark:border-zinc-800/80 bg-white/95 dark:bg-zinc-900/95 shadow-[0_8px_30px_rgba(0,0,0,0.03)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.25)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_20px_50px_rgba(0,0,0,0.5)] hover:border-indigo-300/80 dark:hover:border-indigo-700/80 transition-all duration-300 ease-out backdrop-blur-md overflow-hidden flex flex-col justify-between"
+        class="group rounded-3xl border border-slate-200/70 dark:border-white/8 bg-white/95 dark:bg-zinc-900/90 shadow-[0_8px_30px_rgba(0,0,0,0.03)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.35)] hover:shadow-[0_20px_50px_rgba(5,150,105,0.12)] hover:border-emerald-300/80 dark:hover:border-emerald-600/50 transition-all duration-300 ease-out backdrop-blur-md overflow-hidden flex flex-col justify-between"
       >
         <div class="space-y-4">
           <!-- 封面图视觉预览区 (16:9 Ratio with Hover Zoom & Floating Status Tag) -->
@@ -229,9 +232,9 @@ const copyUrl = (url: string) => {
             </p>
 
             <!-- 核心特性列表 -->
-            <div class="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-zinc-800/50 border border-slate-100 dark:border-zinc-800 space-y-2">
+            <div class="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-zinc-800/50 border border-slate-100 dark:border-white/5 space-y-2">
               <div class="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                <Sparkles class="w-3.5 h-3.5 text-indigo-500" />
+                <Sparkles class="w-3.5 h-3.5 text-emerald-500" />
                 核心生产力特性
               </div>
               <ul class="space-y-1.5 text-xs text-slate-600 dark:text-slate-400 pl-1">
@@ -247,7 +250,7 @@ const copyUrl = (url: string) => {
               <span
                 v-for="tag in app.tags"
                 :key="tag"
-                class="px-2.5 py-1 rounded-xl text-[11px] font-medium bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-400 border border-slate-200/60 dark:border-zinc-700/60"
+                class="px-2.5 py-1 rounded-xl text-[11px] font-medium bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-400 border border-slate-200/60 dark:border-white/5"
               >
                 #{{ tag }}
               </span>
@@ -256,7 +259,7 @@ const copyUrl = (url: string) => {
         </div>
 
         <!-- 卡片底栏操作区 -->
-        <div class="px-5 py-2.5 mt-auto border-t border-slate-100 dark:border-zinc-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+        <div class="px-5 py-2.5 mt-auto border-t border-slate-100 dark:border-white/6 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           <!-- 网址展示与复制 -->
           <div class="flex items-center gap-2 min-w-0">
             <span class="text-xs font-mono font-bold text-slate-500 dark:text-slate-400 truncate max-w-[200px]" :title="app.url">
@@ -264,7 +267,7 @@ const copyUrl = (url: string) => {
             </span>
             <button
               @click="copyUrl(app.url)"
-              class="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors p-1 rounded-md hover:bg-slate-100 dark:hover:bg-zinc-800"
+              class="text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors p-1 rounded-md hover:bg-slate-100 dark:hover:bg-zinc-800"
               title="复制网址"
             >
               <Copy class="w-3.5 h-3.5" />
@@ -275,7 +278,7 @@ const copyUrl = (url: string) => {
           <a-button
             type="primary"
             @click="openApp(app.url)"
-            class="inline-flex items-center justify-center gap-1.5 font-bold rounded-xl! text-[11px] h-8! px-3.5! bg-linear-to-r! from-indigo-600! to-indigo-500! hover:from-indigo-500! hover:to-indigo-400! shadow-xs shadow-indigo-500/20 border-0 active:scale-[0.98] transition-all duration-100 shrink-0"
+            class="inline-flex items-center justify-center gap-1.5 font-bold rounded-xl! text-[11px] h-8! px-3.5! active:scale-[0.98] transition-all duration-100 shrink-0"
           >
             立即开启应用
             <ExternalLink class="w-3 h-3" />

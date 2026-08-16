@@ -22,6 +22,8 @@
 
 | 样式类别 | ✅ Tailwind CSS v4 规范写法 (必须使用) | ❌ v3 废弃/不合规写法 (严禁使用) |
 | :--- | :--- | :--- |
+| **透明度修饰符** | **标准百分比整数**：<br>`dark:border-white/8`<br>`dark:border-white/6`<br>`dark:border-white/4`<br>`bg-black/80` | **小数任意值写法**：<br>`dark:border-white/[0.08]`<br>`dark:border-white/[0.06]`<br>`dark:border-white/[0.04]`<br>`bg-black/[0.8]` |
+| **尺寸与最小宽高** | **4px 乘数网格规范**：<br>`min-w-42.5!` (170px)<br>`min-w-45` (180px)<br>`h-8.5!` (34px)<br>`w-44` | **硬编码像素任意值**：<br>`min-w-[170px]!`<br>`min-w-[180px]`<br>`h-[34px]!` |
 | **渐变背景方向** | `bg-linear-to-r`<br>`bg-linear-to-br`<br>`bg-linear-to-t` | `bg-gradient-to-r`<br>`bg-gradient-to-br`<br>`bg-gradient-to-t` |
 | **Important 修饰符** | **后置感叹号**：<br>`rounded-full!`<br>`h-10!`<br>`bg-indigo-600!`<br>`p-0!` | **前置感叹号**：<br>`!rounded-full`<br>`!h-10`<br>`!bg-indigo-600`<br>`!p-0` |
 | **微型阴影** | `shadow-2xs`<br>`shadow-xs` | `shadow-sm` (用于微小阴影时) |
