@@ -64,7 +64,8 @@ const renderWidget = () => {
     noTimeScale: false,
     valuesTracking: '1',
     changeMode: 'price-and-percent',
-    chartType: 'candlesticks',
+    showFloatingTooltip: true,
+    chartType: 'area',
     isTransparent: true,
     dateRanges: [
       '5d|240',
